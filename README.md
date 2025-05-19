@@ -26,11 +26,66 @@ The figure below illustrates the flowchart of our method.
 
 <img width="1204" alt="Method_diagram (1)" src="https://github.com/user-attachments/assets/7ce8b4b8-9d1e-4758-8188-69de305834da" />
 
-## **Install**
+## **Data Preparation**
+
+The datasets for training the CNN model and for validating our algorithm’s performance are available at the following locations. The **training set** is located in the `raw_data` folder, and the **validation set** is in the `train_data` folder:
+
+* **Baidu Netdisk**
+  Link: [https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62](https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62)
+  Extract code: `9c62`
+
+* **Hugging Face**
+  [https://huggingface.co/datasets/renlll/CPQS\_data/tree/main/data](https://huggingface.co/datasets/renlll/CPQS_data/tree/main/data)
 
 
 
+## **Environment Setup**
 
-百度网盘：链接: https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62 提取码: 9c62 
+Since our algorithm is straightforward, you can set up the environment by running the following commands:
 
-hugginface ：https://huggingface.co/datasets/renlll/CPQS_data/tree/main/data
+```bash
+# Clone the repository
+git clone https://github.com/renllll/CPQS-Tuning.git
+
+# Enter the project directory
+cd CPQS-Tuning
+
+# Create a new conda environment with Python 3.10
+conda create -n cpqs-tuning python=3.10
+
+# Activate the environment
+conda activate cpqs-tuning
+
+# Install required packages
+pip install -r requirements.txt
+```
+
+## **Run Code**
+1.训练CNN模型
+
+python train_cnn.py
+
+你需要修改parse_args中的参数
+
+--model_path: Path to the LLM checkpoint  
+--pos_train_path: Path to positive-sample JSON file  
+--neg_dataset1_path: Path to first negative-sample JSON file  
+--neg_dataset2_path: Path to second negative-sample JSON file  
+--local_data_path: Path to cached merged dataset  用于加载已保存的训练数据
+--backbone: Backbone type (qwen or llama)  你可以选择哪种模型的提示模板
+
+2.预测数据质量
+
+python predict.py
+
+你需要修改parse_args中的参数
+
+--model_path: Path to the LLM checkpoint  
+--cnn_checkpoint: Path to the trained TextCNN .pth file  
+--predict_data: Path to the JSON file for inference  
+--output_path: Path to save prediction results (JSON)  
+--failed_path: Path to save failed predictions (JSON)  
+--backbone: Backbone type (“qwen” or “llama”)  
+运行以上代码后你就会得到输出对每个条目评估CPQS_score得分的文件
+
+3.筛选数据集
