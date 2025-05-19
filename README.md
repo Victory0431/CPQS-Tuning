@@ -60,32 +60,54 @@ conda activate cpqs-tuning
 pip install -r requirements.txt
 ```
 
+
 ## **Run Code**
-1.训练CNN模型
 
-python train_cnn.py
+1. **Train the CNN Model**
 
-你需要修改parse_args中的参数
+   ```bash
+   python train_cnn.py
+   ```
 
---model_path: Path to the LLM checkpoint  
---pos_train_path: Path to positive-sample JSON file  
---neg_dataset1_path: Path to first negative-sample JSON file  
---neg_dataset2_path: Path to second negative-sample JSON file  
---local_data_path: Path to cached merged dataset  用于加载已保存的训练数据
---backbone: Backbone type (qwen or llama)  你可以选择哪种模型的提示模板
+   Modify the following `parse_args` parameters:
 
-2.预测数据质量
+   * `--model_path`：Path to the LLM checkpoint
+   * `--pos_train_path`：Path to the positive-sample JSON file
+   * `--neg_dataset1_path`：Path to the first negative-sample JSON file
+   * `--neg_dataset2_path`：Path to the second negative-sample JSON file
+   * `--local_data_path`：Path to the cached, merged dataset (for loading pre-saved training data)
+   * `--backbone`：Backbone type (`qwen` or `llama`)—choose the prompt template for the desired model
 
-python predict.py
+2. **Evaluate Data Quality**
 
-你需要修改parse_args中的参数
+   ```bash
+   python predict.py
+   ```
 
---model_path: Path to the LLM checkpoint  
---cnn_checkpoint: Path to the trained TextCNN .pth file  
---predict_data: Path to the JSON file for inference  
---output_path: Path to save prediction results (JSON)  
---failed_path: Path to save failed predictions (JSON)  
---backbone: Backbone type (“qwen” or “llama”)  
-运行以上代码后你就会得到输出对每个条目评估CPQS_score得分的文件
+   Modify the following `parse_args` parameters:
 
-3.筛选数据集
+   * `--model_path`：Path to the LLM checkpoint
+   * `--cnn_checkpoint`：Path to the trained TextCNN `.pth` file
+   * `--predict_data`：Path to the JSON file for inference
+   * `--output_path`：Path to save prediction results (JSON)
+   * `--failed_path`：Path to save failed predictions (JSON)
+   * `--backbone`：Backbone type (`qwen` or `llama`)
+
+   After running this script, you will obtain a JSON file containing a `CPQS_score` for each entry.
+
+3. **Filter the Dataset**
+
+   ```bash
+   python process_cpqs.py \
+     -i predict.json \
+     -o sorted_full.json \
+     -n 1000
+   ```
+
+   * `--input_file` / `-i`：Path to the original JSON file.
+   * `--output_file` / `-o`：Path to the sorted, full JSON output.
+   * `--top_n` / `-n`：Optional. If `N > 0`, generates a `*_top_N.json` in the same directory containing only the first three fields, for downstream fine-tuning.
+
+   Once complete, you will have a high-quality subset of your data.
+
+
