@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 22:27 CST
+Last updated: 2026-04-28 23:16 CST
 
 ## Repository
 
@@ -199,8 +199,9 @@ Formal selector training is complete.
   - `MATH-500` finished with score `0.122000`
   - predictions saved to `repro_outputs/eval/base/math500_predictions.json`
 - current live progress:
-  - `ARC-Challenge 160 / 1172`
-  - recent observed throughput around `0.59 samples/s`
+  - `ARC-Challenge` finished with score `0.243174`
+  - predictions saved to `repro_outputs/eval/base/arc_challenge_predictions.json`
+  - current benchmark: `MMLU subset`
 - current configuration from the last launch:
   - `gsm8k batch=4`
   - `math500 batch=4`
@@ -209,6 +210,7 @@ Formal selector training is complete.
 - note:
   - exact resume was not possible because the first attempt left progress logs only and no partial prediction files
   - the current restarted run is the valid one to track
+  - after entering `MMLU subset`, file log updates are sparser because `progress_log_every_batches=20` and the subset is relatively small
 
 ### Candidate Scoring
 
@@ -351,7 +353,8 @@ Formal `Random-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
   - `repro_outputs/logs/eval_random_k5000_seed1.log`
 - current state:
   - model and tokenizer loaded
-  - benchmark entered: `gsm8k`
+  - currently running `gsm8k`
+  - latest confirmed progress: `960 / 1319`
 
 ### CNN Top-K Eval
 
@@ -363,7 +366,8 @@ Formal `CNN Top-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU1`
   - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
 - current state:
   - model and tokenizer loaded
-  - benchmark entered: `gsm8k`
+  - currently running `gsm8k`
+  - latest confirmed progress: `480 / 1319`
 
 ### CNN Bottom-K Eval
 
@@ -375,13 +379,19 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
   - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
 - current state:
   - model and tokenizer loaded
-  - benchmark entered: `gsm8k`
+  - currently running `gsm8k`
+  - latest confirmed progress: `720 / 1319`
 
 ## Current Bottlenecks
 
 - `Full seed 1` is still the longest remaining training job on the critical path
 - both GPUs are now busy with concurrent evaluation jobs, so throughput per run will be lower than single-job mode
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
+- `nvidia-smi` snapshots can temporarily hide one eval process view, but current `ps` and log checks confirm:
+  - `Base eval` is still alive
+  - `Random-K eval` is still alive
+  - `CNN Top-K eval` is still alive
+  - `CNN Bottom-K eval` is still alive
 
 ## Immediate Next Actions
 

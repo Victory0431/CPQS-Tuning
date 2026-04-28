@@ -1,6 +1,6 @@
 # CPQS Round-1 Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-28 22:27 CST
+Last updated: 2026-04-28 23:16 CST
 
 ## Current State
 
@@ -10,7 +10,7 @@ Last updated: 2026-04-28 22:27 CST
 - `Random-K seed 1` LoRA training is complete.
 - `CNN Top-K seed 1` LoRA training is complete.
 - `CNN Bottom-K seed 1` LoRA training is complete.
-- `Base eval` has finished `GSM8K` and `MATH-500`, and is currently running `ARC-Challenge`.
+- `Base eval` has finished `GSM8K`, `MATH-500`, and `ARC-Challenge`, and is currently running `MMLU subset`.
 - `Random-K seed 1` eval has started.
 - `CNN Top-K seed 1` eval has started.
 - `CNN Bottom-K seed 1` eval has started.
@@ -28,10 +28,13 @@ Last updated: 2026-04-28 22:27 CST
   - exact resume was not possible because the previous run had progress logs only and no partial prediction files
   - `GSM8K` is complete with score `0.359363`
   - `MATH-500` is complete with score `0.122000`
-  - `ARC-Challenge` is currently at `160 / 1172`
+  - `ARC-Challenge` is complete with score `0.243174`
 - `Random-K seed 1` eval started on `GPU0` at `2026-04-28 22:25 CST`.
+  - latest confirmed progress: `960 / 1319` on `gsm8k`
 - `CNN Top-K seed 1` eval started on `GPU1` at `2026-04-28 22:25 CST`.
+  - latest confirmed progress: `480 / 1319` on `gsm8k`
 - `CNN Bottom-K seed 1` eval started on `GPU0` at `2026-04-28 22:25 CST`.
+  - latest confirmed progress: `720 / 1319` on `gsm8k`
 
 ## Remaining Tasks
 
@@ -98,7 +101,7 @@ Best-effort schedule from the current state:
 Best estimate for the minimal round-1 closed loop:
 
 - if the current training ETAs hold and evaluation starts immediately after GPU slots free up:
-  - `Base eval` should finish after `ARC-Challenge` and `MMLU subset`, likely around late night `2026-04-28` to early `2026-04-29`
+  - `Base eval` now only needs to finish `MMLU subset`, so it should close sooner than the prior estimate
   - `Random-K / Top-K / Bottom-K` evals are already in flight, so the minimal loop may close earlier than the previous sequential estimate if concurrent throughput stays stable
   - `Full seed 1` training remains the dominant unknown and likely still extends into `2026-04-29`
   - `Full` evaluation plus table aggregation remain the last step of the minimal closed loop
