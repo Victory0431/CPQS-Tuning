@@ -53,6 +53,11 @@ def load_model_and_tokenizer(model_path: str, adapter_path: str):
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()
+    if hasattr(model, "generation_config"):
+        model.generation_config.do_sample = False
+        model.generation_config.temperature = None
+        model.generation_config.top_p = None
+        model.generation_config.top_k = None
     return tokenizer, model
 
 

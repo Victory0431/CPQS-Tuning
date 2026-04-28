@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import wandb
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
-from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 
 from repro.common import (
@@ -135,7 +134,7 @@ def main() -> None:
     ).to(cfg.device_cnn)
 
     optimizer = torch.optim.Adam(classifier.parameters(), lr=cfg.learning_rate)
-    scaler = GradScaler()
+    scaler = torch.amp.GradScaler("cuda")
     criterion = nn.CrossEntropyLoss()
 
     all_examples = load_selector_examples(
@@ -185,7 +184,7 @@ def main() -> None:
             hidden = hidden.unsqueeze(0).to(cfg.device_cnn)
             labels = torch.tensor([label], device=cfg.device_cnn)
 
-            with autocast():
+            with torch.amp.autocast("cuda"):
                 logits = classifier(hidden)
                 loss = criterion(logits, labels) / cfg.grad_accum_steps
 
