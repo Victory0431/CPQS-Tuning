@@ -1,6 +1,6 @@
 # CPQS Round-1 Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-28 20:27 CST
+Last updated: 2026-04-28 22:19 CST
 
 ## Current State
 
@@ -8,7 +8,9 @@ Last updated: 2026-04-28 20:27 CST
 - `Candidate scoring` on `alpaca_gpt4_data.json` is complete.
 - `Full / Random-K / CNN Top-K / CNN Bottom-K` subsets are complete.
 - `Random-K seed 1` LoRA training is complete.
-- `Base eval` was started earlier but is not currently running.
+- `CNN Top-K seed 1` LoRA training is complete.
+- `CNN Bottom-K seed 1` LoRA training is complete.
+- `Base eval` has finished `GSM8K` and is currently running `MATH-500`.
 
 ## Active Jobs
 
@@ -17,25 +19,19 @@ Last updated: 2026-04-28 20:27 CST
   - latest confirmed checkpoint: `step 3251 / 9750`
   - last checkpoint write time: `2026-04-28 19:34:22 CST`
   - interpretation: first epoch is complete, about two thirds of training remain
-- `CNN Top-K seed 1` started on `GPU1` at `2026-04-28 20:16 CST`.
-  - latest ETA from training log at `step 30`: about `84` minutes remaining
-  - best current finish estimate: `2026-04-28 21:40-21:50 CST`
+- `CNN Top-K seed 1` finished at `2026-04-28 21:56:11 CST`.
+- `CNN Bottom-K seed 1` finished at `2026-04-28 21:53:26 CST`.
 - `Base eval` restarted from scratch on `GPU1` at `2026-04-28 20:26 CST`.
   - exact resume was not possible because the previous run had progress logs only and no partial prediction files
-  - it is currently sharing `GPU1` with `CNN Top-K seed 1`
-- `CNN Bottom-K seed 1` started on `GPU0` at `2026-04-28 20:16 CST`.
-  - latest ETA from training log at `step 20`: about `92` minutes remaining
-  - best current finish estimate: `2026-04-28 21:50-22:00 CST`
-  - note: this job is sharing `GPU0` with `Full seed 1`, so ETA is less stable than `Top-K`
+  - `GSM8K` is complete with score `0.359363`
+  - `MATH-500` is currently at `400 / 500`
 
 ## Remaining Tasks
 
 Minimal round-1 closed loop still needed:
 
 - finish `Full seed 1`
-- finish `CNN Top-K seed 1`
-- finish `CNN Bottom-K seed 1`
-- rerun `Base` evaluation
+- finish `Base` evaluation
 - run evaluation for:
   - `Full seed 1`
   - `Random-K seed 1`
@@ -78,31 +74,28 @@ Additional round-1 expansion after the first closed loop:
 Best-effort schedule from the current state:
 
 - `GPU0`
-  - `2026-04-28 20:16` to about `2026-04-28 21:50`:
+  - now until `Full seed 1` finishes:
     - `Full seed 1`
-    - `CNN Bottom-K seed 1`
-  - about `2026-04-28 21:50` to about `2026-04-29 06:30-07:30`:
-    - `Full seed 1` continues alone
   - after `Full seed 1` finishes:
-    - run `Full` evaluation
+    - `Full` evaluation
 
 - `GPU1`
-  - `2026-04-28 20:16` to about `2026-04-28 21:40-21:50`:
-    - `CNN Top-K seed 1`
-    - `Base` evaluation in parallel from `2026-04-28 20:26`
+  - now until `Base eval` finishes:
+    - `Base` evaluation
   - then recommended order:
     - `Random-K seed 1` evaluation
     - `CNN Top-K seed 1` evaluation
-    - `CNN Bottom-K seed 1` evaluation once the adapter is ready
+    - `CNN Bottom-K seed 1` evaluation
 
 ## Expected Finish Times
 
 Best estimate for the minimal round-1 closed loop:
 
 - if the current training ETAs hold and evaluation starts immediately after GPU slots free up:
-  - first four evals (`Base / Random-K / Top-K / Bottom-K`) can likely finish by `2026-04-29 06:00-08:00 CST`
-  - `Full seed 1` training should finish around `2026-04-29 06:30-07:30 CST`
-  - `Full` evaluation plus table aggregation should finish around `2026-04-29 09:00-10:30 CST`
+  - `Base eval` should finish after `MATH-500`, `ARC-Challenge`, and `MMLU subset`, likely around late night `2026-04-28` to early `2026-04-29`
+  - then `Random-K / Top-K / Bottom-K` evals can run sequentially on `GPU1`
+  - `Full seed 1` training remains the dominant unknown and likely still extends into `2026-04-29`
+  - `Full` evaluation plus table aggregation remain the last step of the minimal closed loop
 
 Best estimate for the expanded three-seed round-1 package:
 
@@ -125,3 +118,4 @@ Best estimate for the expanded three-seed round-1 package:
   - `repro_outputs/logs/lora_full_seed1.log`
   - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
   - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
+  - `repro_outputs/logs/base_eval.log`

@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 20:27 CST
+Last updated: 2026-04-28 22:19 CST
 
 ## Repository
 
@@ -187,26 +187,26 @@ Formal selector training is complete.
 
 ### Base Eval
 
-`Base` evaluation was started and produced valid progress logs on `GSM8K`, but it is not currently running.
+`Base` evaluation is currently running on `GPU1`.
 
 - output dir:
   - `repro_outputs/eval/base`
 - log file:
   - `repro_outputs/logs/base_eval.log`
-- latest confirmed progress:
-  - `GSM8K 216 / 1319`
-  - observed throughput around `0.29-0.31 samples/s`
+- completed so far:
+  - `GSM8K` finished with score `0.359363`
+  - predictions saved to `repro_outputs/eval/base/gsm8k_predictions.json`
+- current live progress:
+  - `MATH-500 400 / 500`
+  - recent observed throughput around `0.29 samples/s`
 - current configuration from the last launch:
   - `gsm8k batch=4`
   - `math500 batch=4`
   - `arc batch=8`
   - `mmlu batch=8`
 - note:
-  - no final benchmark score has been produced yet
-- next step:
-  - restarted from scratch at `2026-04-28 20:26 CST` on `GPU1`
-  - exact resume was not possible because the previous run did not leave partial prediction files
-  - it is now running in parallel with `CNN Top-K seed 1`
+  - exact resume was not possible because the first attempt left progress logs only and no partial prediction files
+  - the current restarted run is the valid one to track
 
 ### Candidate Scoring
 
@@ -253,7 +253,7 @@ Round-1 subsets are now fully materialized.
 
 ### Full LoRA
 
-Formal `Full seed 1` LoRA training is running on `GPU0`.
+Formal `Full seed 1` LoRA training is still running on `GPU0`.
 
 - output dir:
   - `repro_outputs/lora/full/seed_1`
@@ -275,6 +275,7 @@ Formal `Full seed 1` LoRA training is running on `GPU0`.
     - `step=3251/9750`
     - `epoch=1.0`
     - checkpoint write time `2026-04-28 19:34:22 CST`
+  - no newer epoch checkpoint has appeared yet
 
 ### Random-K LoRA
 
@@ -298,7 +299,7 @@ Formal `Random-K seed 1` LoRA training is complete.
 
 ### CNN Top-K LoRA
 
-Formal `CNN Top-K seed 1` LoRA training is now running on `GPU1`.
+Formal `CNN Top-K seed 1` LoRA training is complete.
 
 - output dir:
   - `repro_outputs/lora/cnn_top_k5000/seed_1`
@@ -313,13 +314,12 @@ Formal `CNN Top-K seed 1` LoRA training is now running on `GPU1`.
   - `lora_alpha=8`
   - effective batch size `16`
 - current state:
-  - started at `2026-04-28 20:16 CST`
-  - training schedule confirms `936` trainer steps
-  - early ETA after `step=30` is about `84` minutes
+  - completed at `2026-04-28 21:56:11 CST`
+  - final adapter saved successfully
 
 ### CNN Bottom-K LoRA
 
-Formal `CNN Bottom-K seed 1` LoRA training is now running on `GPU0` alongside `Full seed 1`.
+Formal `CNN Bottom-K seed 1` LoRA training is complete.
 
 - output dir:
   - `repro_outputs/lora/cnn_bottom_k5000/seed_1`
@@ -334,23 +334,21 @@ Formal `CNN Bottom-K seed 1` LoRA training is now running on `GPU0` alongside `F
   - `lora_alpha=8`
   - effective batch size `16`
 - current state:
-  - started at `2026-04-28 20:16 CST`
-  - training schedule confirms `936` trainer steps
-  - early ETA after `step=20` is about `92` minutes
+  - completed at `2026-04-28 21:53:26 CST`
+  - final adapter saved successfully
 
 ## Current Bottlenecks
 
-- both GPUs are currently occupied, and `GPU1` is now shared by `CNN Top-K seed 1` plus `Base eval`
-- adapter evaluation jobs after `Base` still need to wait for the next free slot
+- `Full seed 1` is still the longest remaining training job on the critical path
+- adapter evaluation jobs for `Random-K / Top-K / Bottom-K` are queued behind the currently running `Base eval`
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
-- `Full seed 1` and `CNN Bottom-K seed 1` are currently sharing `GPU0`, so `Full` finish time is now more uncertain than before
 
 ## Immediate Next Actions
 
-1. Let `Full seed 1`, `CNN Top-K seed 1`, and `CNN Bottom-K seed 1` continue.
-2. As soon as `GPU1` frees up, run `Base` evaluation.
-3. Then evaluate `Random-K seed 1` and `CNN Top-K seed 1`.
-4. Evaluate `CNN Bottom-K seed 1` as soon as its adapter is ready.
+1. Let `Base eval` continue on `GPU1` until all four benchmarks finish.
+2. Then evaluate `Random-K seed 1`.
+3. Then evaluate `CNN Top-K seed 1`.
+4. Then evaluate `CNN Bottom-K seed 1`.
 5. After `Full seed 1` finishes, run `Full` evaluation and aggregate:
    - per-run raw scores
    - group mean/std
