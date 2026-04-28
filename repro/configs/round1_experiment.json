@@ -1,0 +1,42 @@
+{
+  "base_model": "/home/qjh/llm_learning/base_model/qwen3_8B",
+  "candidate_data": "/home/qjh/llm_learning/CPQS_lab/data/candidate_data/alpaca_gpt4_data.json",
+  "selector_training_data": {
+    "positive": "/home/qjh/llm_learning/CPQS_lab/data/raw_data/alpaca_gpt4_data.json",
+    "negative_1": "/home/qjh/llm_learning/CPQS_lab/data/raw_data/alpaca_gpt4_data_llama.json",
+    "negative_2": "/home/qjh/llm_learning/CPQS_lab/data/raw_data/alpaca_gpt4_data_qwen251.json"
+  },
+  "benchmarks_root": "/home/qjh/llm_learning/CPQS_lab/data/benchmarks",
+  "mmlu_path": "/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/eval/Open LLM Leaderboard/MMLU/mmlu_data/mmlu_test.json",
+  "selection_k": 5000,
+  "groups": [
+    "base",
+    "full",
+    "random_k_seed_1",
+    "random_k_seed_2",
+    "random_k_seed_3",
+    "cnn_top_k_seed_1",
+    "cnn_top_k_seed_2",
+    "cnn_top_k_seed_3",
+    "cnn_bottom_k_seed_1",
+    "cnn_bottom_k_seed_2",
+    "cnn_bottom_k_seed_3"
+  ],
+  "lora_hparams": {
+    "epochs": 3,
+    "learning_rate": 5e-5,
+    "max_length": 2048,
+    "lora_rank": 16,
+    "lora_alpha": 16
+  },
+  "evaluation": {
+    "benchmarks": [
+      "gsm8k",
+      "math500",
+      "arc_challenge",
+      "mmlu_subset"
+    ],
+    "mmlu_examples_per_subject": 8,
+    "mmlu_subset_seed": 42
+  }
+}

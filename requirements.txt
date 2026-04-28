@@ -27,3 +27,4 @@ tyro<0.9.0
 vllm
 matplotlib
 tqdm
+wandb
