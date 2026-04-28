@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 20:22 CST
+Last updated: 2026-04-28 20:27 CST
 
 ## Repository
 
@@ -204,7 +204,9 @@ Formal selector training is complete.
 - note:
   - no final benchmark score has been produced yet
 - next step:
-  - relaunch with the newer logging version after a GPU slot becomes available
+  - restarted from scratch at `2026-04-28 20:26 CST` on `GPU1`
+  - exact resume was not possible because the previous run did not leave partial prediction files
+  - it is now running in parallel with `CNN Top-K seed 1`
 
 ### Candidate Scoring
 
@@ -338,7 +340,8 @@ Formal `CNN Bottom-K seed 1` LoRA training is now running on `GPU0` alongside `F
 
 ## Current Bottlenecks
 
-- both GPUs are currently occupied by LoRA training, so `Base eval` and adapter evaluation jobs must wait for the next free slot
+- both GPUs are currently occupied, and `GPU1` is now shared by `CNN Top-K seed 1` plus `Base eval`
+- adapter evaluation jobs after `Base` still need to wait for the next free slot
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
 - `Full seed 1` and `CNN Bottom-K seed 1` are currently sharing `GPU0`, so `Full` finish time is now more uncertain than before
 

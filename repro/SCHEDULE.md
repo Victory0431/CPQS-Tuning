@@ -1,6 +1,6 @@
 # CPQS Round-1 Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-28 20:22 CST
+Last updated: 2026-04-28 20:27 CST
 
 ## Current State
 
@@ -20,6 +20,9 @@ Last updated: 2026-04-28 20:22 CST
 - `CNN Top-K seed 1` started on `GPU1` at `2026-04-28 20:16 CST`.
   - latest ETA from training log at `step 30`: about `84` minutes remaining
   - best current finish estimate: `2026-04-28 21:40-21:50 CST`
+- `Base eval` restarted from scratch on `GPU1` at `2026-04-28 20:26 CST`.
+  - exact resume was not possible because the previous run had progress logs only and no partial prediction files
+  - it is currently sharing `GPU1` with `CNN Top-K seed 1`
 - `CNN Bottom-K seed 1` started on `GPU0` at `2026-04-28 20:16 CST`.
   - latest ETA from training log at `step 20`: about `92` minutes remaining
   - best current finish estimate: `2026-04-28 21:50-22:00 CST`
@@ -86,8 +89,8 @@ Best-effort schedule from the current state:
 - `GPU1`
   - `2026-04-28 20:16` to about `2026-04-28 21:40-21:50`:
     - `CNN Top-K seed 1`
+    - `Base` evaluation in parallel from `2026-04-28 20:26`
   - then recommended order:
-    - `Base` evaluation
     - `Random-K seed 1` evaluation
     - `CNN Top-K seed 1` evaluation
     - `CNN Bottom-K seed 1` evaluation once the adapter is ready
@@ -122,4 +125,3 @@ Best estimate for the expanded three-seed round-1 package:
   - `repro_outputs/logs/lora_full_seed1.log`
   - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
   - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
-
