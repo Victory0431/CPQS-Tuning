@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 23:16 CST
+Last updated: 2026-04-28 23:28 CST
 
 ## Repository
 
@@ -211,6 +211,15 @@ Formal selector training is complete.
   - exact resume was not possible because the first attempt left progress logs only and no partial prediction files
   - the current restarted run is the valid one to track
   - after entering `MMLU subset`, file log updates are sparser because `progress_log_every_batches=20` and the subset is relatively small
+  - the original `base eval` process did not actually hang in `MMLU subset`; it exited because of a bug in `evaluate_round1.py`
+  - root cause:
+    - `evaluate_mmlu_subset()` was defined without `logger` and `progress_log_every_batches`
+    - the caller passed those arguments
+    - result: the process crashed immediately when `mmlu_subset` started
+  - remediation applied:
+    - fixed the function signature
+    - added benchmark-level resume support via `--benchmarks`
+    - restarted `Base` for `mmlu_subset` only with log file `repro_outputs/logs/base_eval_resume_mmlu.log`
 
 ### Candidate Scoring
 
@@ -355,6 +364,8 @@ Formal `Random-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
   - model and tokenizer loaded
   - currently running `gsm8k`
   - latest confirmed progress: `960 / 1319`
+  - note:
+    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
 ### CNN Top-K Eval
 
@@ -368,6 +379,8 @@ Formal `CNN Top-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU1`
   - model and tokenizer loaded
   - currently running `gsm8k`
   - latest confirmed progress: `480 / 1319`
+  - note:
+    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
 ### CNN Bottom-K Eval
 
@@ -381,6 +394,8 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
   - model and tokenizer loaded
   - currently running `gsm8k`
   - latest confirmed progress: `720 / 1319`
+  - note:
+    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
 ## Current Bottlenecks
 
@@ -392,12 +407,14 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
   - `Random-K eval` is still alive
   - `CNN Top-K eval` is still alive
   - `CNN Bottom-K eval` is still alive
+- any eval process launched before the `2026-04-28 23:28 CST` `evaluate_round1.py` fix will still be using the old in-memory code and may terminate when reaching `mmlu_subset`
 
 ## Immediate Next Actions
 
-1. Let `Base / Random-K / CNN Top-K / CNN Bottom-K` evaluations continue in parallel.
-2. As soon as any of the three adapter evals produces benchmark outputs, keep monitoring throughput and stability.
-3. After `Full seed 1` finishes, run `Full` evaluation.
-4. Then aggregate:
+1. Let `Base` `mmlu_subset` recovery run continue on `GPU1`.
+2. Let the three adapter evals continue through their current benchmark progress.
+3. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script.
+4. After `Full seed 1` finishes, run `Full` evaluation with the patched script.
+5. Then aggregate:
    - per-run raw scores
    - group mean/std

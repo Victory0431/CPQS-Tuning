@@ -23,6 +23,8 @@ from repro.common import (
     set_seed,
 )
 
+BENCHMARK_CHOICES = ["gsm8k", "math500", "arc_challenge", "mmlu_subset"]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Automatic benchmark scoring for round-1 CPQS runs.")
@@ -43,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size_mmlu", type=int, default=8)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--progress_log_every_batches", type=int, default=20)
+    parser.add_argument("--benchmarks", nargs="+", choices=BENCHMARK_CHOICES, default=BENCHMARK_CHOICES)
     parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
@@ -247,6 +250,8 @@ def evaluate_mmlu_subset(
     batch_size: int,
     max_new_tokens: int,
     limit: int,
+    logger,
+    progress_log_every_batches: int,
 ) -> Dict[str, Any]:
     rows = build_mmlu_subset(mmlu_path, examples_per_subject, subset_seed)
     if limit > 0:
@@ -300,11 +305,12 @@ def main() -> None:
     logger = setup_logger("repro.evaluate_round1", log_file)
     logger.info("Evaluation started")
     logger.info(
-        "Config | group=%s seed=%s max_new_tokens=%s adapter=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
+        "Config | group=%s seed=%s max_new_tokens=%s adapter=%s benchmarks=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
         cfg.group_name,
         cfg.seed,
         cfg.max_new_tokens,
         cfg.adapter_path or "<base>",
+        ",".join(cfg.benchmarks),
         cfg.batch_size_gsm8k,
         cfg.batch_size_math500,
         cfg.batch_size_arc,
@@ -315,7 +321,7 @@ def main() -> None:
     tokenizer, model = load_model_and_tokenizer(cfg.model_path, cfg.adapter_path)
     logger.info("Model and tokenizer loaded")
 
-    benchmark_jobs = [
+    all_benchmark_jobs = [
         ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_gsm8k, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
         ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_math500, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
         ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_arc, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
@@ -335,10 +341,19 @@ def main() -> None:
             ),
         ),
     ]
+    selected = set(cfg.benchmarks)
+    benchmark_jobs = [(name, fn) for name, fn in all_benchmark_jobs if name in selected]
 
-    run_rows: List[Dict[str, Any]] = []
     csv_path = output_dir / "run_scores.csv"
     json_path = output_dir / "run_scores.json"
+    existing_rows: List[Dict[str, Any]] = []
+    if json_path.exists():
+        with open(json_path, "r", encoding="utf-8") as handle:
+            existing_rows = json.load(handle)
+        logger.info("Loaded existing run scores | rows=%s", len(existing_rows))
+    run_rows: List[Dict[str, Any]] = [row for row in existing_rows if row.get("dataset") not in selected]
+    if existing_rows:
+        logger.info("Keeping prior benchmark results | rows=%s", len(run_rows))
 
     for benchmark_name, benchmark_fn in benchmark_jobs:
         logger.info("Benchmark start | %s", benchmark_name)

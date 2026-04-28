@@ -1,6 +1,6 @@
 # CPQS Round-1 Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-28 23:16 CST
+Last updated: 2026-04-28 23:28 CST
 
 ## Current State
 
@@ -14,6 +14,7 @@ Last updated: 2026-04-28 23:16 CST
 - `Random-K seed 1` eval has started.
 - `CNN Top-K seed 1` eval has started.
 - `CNN Bottom-K seed 1` eval has started.
+- the original `evaluate_round1.py` had a bug at `mmlu_subset` entry and has now been patched
 
 ## Active Jobs
 
@@ -29,6 +30,8 @@ Last updated: 2026-04-28 23:16 CST
   - `GSM8K` is complete with score `0.359363`
   - `MATH-500` is complete with score `0.122000`
   - `ARC-Challenge` is complete with score `0.243174`
+  - the original process exited at `MMLU subset` because of the `evaluate_mmlu_subset()` argument mismatch bug
+  - `Base` `mmlu_subset` has been relaunched on the patched script at `2026-04-28 23:27 CST`
 - `Random-K seed 1` eval started on `GPU0` at `2026-04-28 22:25 CST`.
   - latest confirmed progress: `960 / 1319` on `gsm8k`
 - `CNN Top-K seed 1` eval started on `GPU1` at `2026-04-28 22:25 CST`.
@@ -92,8 +95,8 @@ Best-effort schedule from the current state:
     - `Full` evaluation
 
 - `GPU1`
-  - now until `Base eval` finishes:
-    - `Base` evaluation
+  - now until the patched `Base` `mmlu_subset` recovery finishes:
+    - `Base` `mmlu_subset` recovery
     - `CNN Top-K seed 1` evaluation
 
 ## Expected Finish Times
@@ -101,8 +104,9 @@ Best-effort schedule from the current state:
 Best estimate for the minimal round-1 closed loop:
 
 - if the current training ETAs hold and evaluation starts immediately after GPU slots free up:
-  - `Base eval` now only needs to finish `MMLU subset`, so it should close sooner than the prior estimate
+  - `Base eval` now only needs to finish the patched `MMLU subset` recovery, so it should close sooner than the prior estimate
   - `Random-K / Top-K / Bottom-K` evals are already in flight, so the minimal loop may close earlier than the previous sequential estimate if concurrent throughput stays stable
+  - those three adapter evals were launched before the `mmlu_subset` fix, so each may still need a short `mmlu_subset`-only recovery run
   - `Full seed 1` training remains the dominant unknown and likely still extends into `2026-04-29`
   - `Full` evaluation plus table aggregation remain the last step of the minimal closed loop
 
@@ -128,6 +132,7 @@ Best estimate for the expanded three-seed round-1 package:
   - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
   - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
   - `repro_outputs/logs/base_eval.log`
+  - `repro_outputs/logs/base_eval_resume_mmlu.log`
   - `repro_outputs/logs/eval_random_k5000_seed1.log`
   - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
   - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
