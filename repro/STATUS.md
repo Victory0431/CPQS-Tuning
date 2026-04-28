@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 22:19 CST
+Last updated: 2026-04-28 22:27 CST
 
 ## Repository
 
@@ -196,9 +196,11 @@ Formal selector training is complete.
 - completed so far:
   - `GSM8K` finished with score `0.359363`
   - predictions saved to `repro_outputs/eval/base/gsm8k_predictions.json`
+  - `MATH-500` finished with score `0.122000`
+  - predictions saved to `repro_outputs/eval/base/math500_predictions.json`
 - current live progress:
-  - `MATH-500 400 / 500`
-  - recent observed throughput around `0.29 samples/s`
+  - `ARC-Challenge 160 / 1172`
+  - recent observed throughput around `0.59 samples/s`
 - current configuration from the last launch:
   - `gsm8k batch=4`
   - `math500 batch=4`
@@ -337,18 +339,55 @@ Formal `CNN Bottom-K seed 1` LoRA training is complete.
   - completed at `2026-04-28 21:53:26 CST`
   - final adapter saved successfully
 
+## Active Evaluation
+
+### Random-K Eval
+
+Formal `Random-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
+
+- output dir:
+  - `repro_outputs/eval/random_k5000_seed1`
+- log file:
+  - `repro_outputs/logs/eval_random_k5000_seed1.log`
+- current state:
+  - model and tokenizer loaded
+  - benchmark entered: `gsm8k`
+
+### CNN Top-K Eval
+
+Formal `CNN Top-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU1`.
+
+- output dir:
+  - `repro_outputs/eval/cnn_top_k5000_seed1`
+- log file:
+  - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
+- current state:
+  - model and tokenizer loaded
+  - benchmark entered: `gsm8k`
+
+### CNN Bottom-K Eval
+
+Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
+
+- output dir:
+  - `repro_outputs/eval/cnn_bottom_k5000_seed1`
+- log file:
+  - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
+- current state:
+  - model and tokenizer loaded
+  - benchmark entered: `gsm8k`
+
 ## Current Bottlenecks
 
 - `Full seed 1` is still the longest remaining training job on the critical path
-- adapter evaluation jobs for `Random-K / Top-K / Bottom-K` are queued behind the currently running `Base eval`
+- both GPUs are now busy with concurrent evaluation jobs, so throughput per run will be lower than single-job mode
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
 
 ## Immediate Next Actions
 
-1. Let `Base eval` continue on `GPU1` until all four benchmarks finish.
-2. Then evaluate `Random-K seed 1`.
-3. Then evaluate `CNN Top-K seed 1`.
-4. Then evaluate `CNN Bottom-K seed 1`.
-5. After `Full seed 1` finishes, run `Full` evaluation and aggregate:
+1. Let `Base / Random-K / CNN Top-K / CNN Bottom-K` evaluations continue in parallel.
+2. As soon as any of the three adapter evals produces benchmark outputs, keep monitoring throughput and stability.
+3. After `Full seed 1` finishes, run `Full` evaluation.
+4. Then aggregate:
    - per-run raw scores
    - group mean/std
