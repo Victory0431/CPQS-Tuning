@@ -35,6 +35,28 @@ Last updated: 2026-04-28 (afternoon update)
 - Target project:
   - `https://wandb.ai/jiahongqin1-ucas-hias/CPQS_research`
 
+## Runtime Logging
+
+The `repro/` long-running scripts now use timestamped logs.
+
+- `train_selector.py`
+- `train_lora.py`
+- `score_candidates.py`
+- `evaluate_round1.py`
+
+Current logging policy:
+
+- every long-running job writes both to stdout and to a timestamped log file path
+- benchmark evaluation saves outputs benchmark-by-benchmark instead of only at the very end
+- candidate scoring writes progress logs and a partial JSONL stream during execution
+
+This is now the default expectation for follow-up experiment code.
+
+## vLLM Status
+
+- `vllm` is not currently installed in the `cpqs-tuning` environment
+- migrating evaluation to `vLLM` is therefore a code-and-environment change, not just a flag switch
+
 ## Round-1 Experimental Scope
 
 Fixed comparison groups:

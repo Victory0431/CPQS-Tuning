@@ -18,6 +18,7 @@ from repro.common import (
     load_instruction_records,
     resolve_wandb_mode,
     set_seed,
+    setup_logger,
 )
 
 
@@ -83,6 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wandb_project", default=DEFAULT_WANDB_PROJECT)
     parser.add_argument("--wandb_entity", default=DEFAULT_WANDB_ENTITY)
     parser.add_argument("--disable_wandb", action="store_true")
+    parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
 
@@ -92,6 +94,10 @@ def main() -> None:
 
     output_dir = Path(cfg.output_dir)
     ensure_dir(output_dir)
+    log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "train_lora.log"
+    logger = setup_logger("repro.train_lora", log_file)
+    logger.info("LoRA training started")
+    logger.info("Config | group=%s seed=%s output_dir=%s", cfg.group_name, cfg.seed, output_dir)
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -111,6 +117,7 @@ def main() -> None:
         )
         if feature is not None:
             features.append(feature)
+    logger.info("Training data prepared | raw_records=%s usable_features=%s", len(records), len(features))
 
     dataset = SFTDataset(features)
 
@@ -162,8 +169,10 @@ def main() -> None:
         data_collator=SupervisedDataCollator(tokenizer),
     )
     trainer.train()
+    logger.info("Trainer finished")
     trainer.save_model(str(output_dir / "final_adapter"))
     tokenizer.save_pretrained(str(output_dir / "final_adapter"))
+    logger.info("Adapter saved | path=%s", output_dir / "final_adapter")
 
     (output_dir / "run_config.json").write_text(
         json.dumps(
@@ -177,6 +186,7 @@ def main() -> None:
         ),
         encoding="utf-8",
     )
+    logger.info("LoRA training finished")
 
 
 if __name__ == "__main__":

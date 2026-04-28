@@ -12,11 +12,13 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from repro.common import (
+    ensure_dir,
     extract_final_choice,
     extract_gsm8k_gold,
     format_mc_options,
     math_answers_equal,
     normalize_number,
+    setup_logger,
     set_seed,
 )
 
@@ -35,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
 
@@ -258,48 +261,75 @@ def main() -> None:
     cfg = parse_args()
     set_seed(cfg.seed)
     output_dir = Path(cfg.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_dir)
+    log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "evaluate_round1.log"
+    logger = setup_logger("repro.evaluate_round1", log_file)
+    logger.info("Evaluation started")
+    logger.info(
+        "Config | group=%s seed=%s batch_size=%s max_new_tokens=%s adapter=%s",
+        cfg.group_name,
+        cfg.seed,
+        cfg.batch_size,
+        cfg.max_new_tokens,
+        cfg.adapter_path or "<base>",
+    )
 
+    logger.info("Loading model and tokenizer")
     tokenizer, model = load_model_and_tokenizer(cfg.model_path, cfg.adapter_path)
+    logger.info("Model and tokenizer loaded")
 
-    results = [
-        evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit),
-        evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit),
-        evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit),
-        evaluate_mmlu_subset(
-            tokenizer,
-            model,
-            cfg.mmlu_path,
-            cfg.mmlu_examples_per_subject,
-            cfg.mmlu_subset_seed,
-            cfg.batch_size,
-            cfg.max_new_tokens,
-            cfg.limit,
+    benchmark_jobs = [
+        ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
+        ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
+        ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
+        (
+            "mmlu_subset",
+            lambda: evaluate_mmlu_subset(
+                tokenizer,
+                model,
+                cfg.mmlu_path,
+                cfg.mmlu_examples_per_subject,
+                cfg.mmlu_subset_seed,
+                cfg.batch_size,
+                cfg.max_new_tokens,
+                cfg.limit,
+            ),
         ),
     ]
 
     run_rows: List[Dict[str, Any]] = []
-    for result in results:
+    csv_path = output_dir / "run_scores.csv"
+    json_path = output_dir / "run_scores.json"
+
+    for benchmark_name, benchmark_fn in benchmark_jobs:
+        logger.info("Benchmark start | %s", benchmark_name)
+        result = benchmark_fn()
         dataset_name = result["dataset"]
         with open(output_dir / f"{dataset_name}_predictions.json", "w", encoding="utf-8") as handle:
             json.dump(result["rows"], handle, ensure_ascii=False, indent=2)
-        run_rows.append(
-            {
-                "group": cfg.group_name,
-                "seed": cfg.seed,
-                "dataset": dataset_name,
-                "score": result["score"],
-                "adapter_path": cfg.adapter_path,
-            }
+        row = {
+            "group": cfg.group_name,
+            "seed": cfg.seed,
+            "dataset": dataset_name,
+            "score": result["score"],
+            "adapter_path": cfg.adapter_path,
+        }
+        run_rows.append(row)
+        with open(csv_path, "w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=["group", "seed", "dataset", "score", "adapter_path"])
+            writer.writeheader()
+            writer.writerows(run_rows)
+        with open(json_path, "w", encoding="utf-8") as handle:
+            json.dump(run_rows, handle, ensure_ascii=False, indent=2)
+        logger.info(
+            "Benchmark done | %s | rows=%s | score=%.6f | saved=%s",
+            dataset_name,
+            len(result["rows"]),
+            result["score"],
+            output_dir / f"{dataset_name}_predictions.json",
         )
 
-    with open(output_dir / "run_scores.csv", "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["group", "seed", "dataset", "score", "adapter_path"])
-        writer.writeheader()
-        writer.writerows(run_rows)
-
-    with open(output_dir / "run_scores.json", "w", encoding="utf-8") as handle:
-        json.dump(run_rows, handle, ensure_ascii=False, indent=2)
+    logger.info("Evaluation finished | total_benchmarks=%s", len(run_rows))
 
 
 if __name__ == "__main__":

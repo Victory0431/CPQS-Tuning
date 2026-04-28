@@ -1,7 +1,9 @@
 import json
+import logging
 import math
 import random
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -90,6 +92,34 @@ class DeepTextCNN(nn.Module):
 
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+def setup_logger(name: str, log_path: Path) -> logging.Logger:
+    ensure_dir(log_path.parent)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    if logger.handlers:
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    return logger
+
+
+def append_jsonl(path: Path, record: Dict[str, Any]) -> None:
+    ensure_dir(path.parent)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def load_json(path: str) -> Any:
@@ -463,5 +493,5 @@ def math_answers_equal(prediction: str, gold: str) -> bool:
     return False
 
 
-def resolve_wandb_mode(enable_wandb: bool) -> str:
+def resolve_wandb_mode(enable_wandb: bool) -> List[str]:
     return ["wandb"] if enable_wandb else []

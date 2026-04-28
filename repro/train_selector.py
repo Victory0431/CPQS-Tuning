@@ -22,6 +22,7 @@ from repro.common import (
     resolve_wandb_mode,
     selected_num_layers,
     set_seed,
+    setup_logger,
     stratified_split,
     total_layers,
 )
@@ -50,6 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wandb_entity", default=DEFAULT_WANDB_ENTITY)
     parser.add_argument("--wandb_run_name", default="selector-train")
     parser.add_argument("--disable_wandb", action="store_true")
+    parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
 
@@ -114,6 +116,10 @@ def main() -> None:
     output_dir = Path(cfg.output_dir)
     ensure_dir(output_dir)
     ensure_dir(output_dir / "checkpoints")
+    log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "train_selector.log"
+    logger = setup_logger("repro.train_selector", log_file)
+    logger.info("Selector training started")
+    logger.info("Config | output_dir=%s seed=%s epochs=%s lr=%s", output_dir, cfg.seed, cfg.epochs, cfg.learning_rate)
 
     if not cfg.disable_wandb:
         wandb.init(
@@ -126,6 +132,7 @@ def main() -> None:
     tokenizer, backbone = load_backbone(cfg.model_path, cfg.device_llm)
     layer_count = total_layers(backbone)
     num_layers = selected_num_layers(layer_count, cfg.use_layers, cfg.use_part)
+    logger.info("Backbone loaded | total_layers=%s selected_layers=%s", layer_count, num_layers)
 
     classifier = DeepTextCNN(
         embedding_dim=backbone.config.hidden_size,
@@ -144,6 +151,7 @@ def main() -> None:
         seed=cfg.seed,
     )[: cfg.max_train_examples]
     train_examples, val_examples = stratified_split(all_examples, cfg.train_ratio, cfg.seed)
+    logger.info("Dataset prepared | train=%s val=%s total=%s", len(train_examples), len(val_examples), len(all_examples))
 
     (output_dir / "split_summary.json").write_text(
         json.dumps(
@@ -210,7 +218,7 @@ def main() -> None:
             **val_metrics,
         }
         train_log.append(epoch_metrics)
-        print(epoch_metrics)
+        logger.info("Epoch done | metrics=%s", epoch_metrics)
 
         if not cfg.disable_wandb:
             wandb.log(epoch_metrics, step=global_step)
@@ -226,6 +234,7 @@ def main() -> None:
                 json.dumps(epoch_metrics, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
+            logger.info("New best checkpoint saved | epoch=%s auc=%.6f", epoch + 1, val_metrics["auc"])
 
     (output_dir / "training_log.json").write_text(
         json.dumps(train_log, ensure_ascii=False, indent=2),
@@ -234,6 +243,7 @@ def main() -> None:
 
     if not cfg.disable_wandb:
         wandb.finish()
+    logger.info("Selector training finished")
 
 
 if __name__ == "__main__":
