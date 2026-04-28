@@ -43,6 +43,8 @@ The `repro/` long-running scripts now use timestamped logs.
 - `train_lora.py`
 - `score_candidates.py`
 - `evaluate_round1.py`
+- `build_subsets.py`
+- `aggregate_results.py`
 
 Current logging policy:
 

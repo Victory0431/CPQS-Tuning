@@ -5,7 +5,7 @@ import random
 from pathlib import Path
 from typing import Dict, List
 
-from repro.common import ensure_dir
+from repro.common import ensure_dir, setup_logger
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,6 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--k", type=int, default=5000)
     parser.add_argument("--random_seeds", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
 
@@ -41,9 +42,13 @@ def main() -> None:
     cfg = parse_args()
     output_dir = Path(cfg.output_dir)
     ensure_dir(output_dir)
+    log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "build_subsets.log"
+    logger = setup_logger("repro.build_subsets", log_file)
+    logger.info("Subset building started | scored_candidates=%s k=%s random_seeds=%s", cfg.scored_candidates, cfg.k, cfg.random_seeds)
 
     with open(cfg.scored_candidates, "r", encoding="utf-8") as handle:
         records = json.load(handle)
+    logger.info("Loaded scored candidates | total=%s", len(records))
 
     total = len(records)
     if cfg.k > total:
@@ -56,6 +61,7 @@ def main() -> None:
     write_subset(output_dir / "full.json", full)
     write_subset(output_dir / f"cnn_top_{cfg.k}.json", top_k)
     write_subset(output_dir / f"cnn_bottom_{cfg.k}.json", bottom_k)
+    logger.info("Saved deterministic subsets | full=%s top=%s bottom=%s", len(full), len(top_k), len(bottom_k))
 
     manifest: List[Dict[str, object]] = [
         {"group": "full", "seed": 1, "size": len(full), "path": "full.json"},
@@ -68,6 +74,7 @@ def main() -> None:
         sample = trim_records(rng.sample(records, cfg.k))
         filename = f"random_{cfg.k}_seed_{seed}.json"
         write_subset(output_dir / filename, sample)
+        logger.info("Saved random subset | seed=%s size=%s path=%s", seed, len(sample), filename)
         manifest.append(
             {"group": "random", "seed": seed, "size": len(sample), "path": filename}
         )
@@ -76,6 +83,7 @@ def main() -> None:
         writer = csv.DictWriter(handle, fieldnames=["group", "seed", "size", "path"])
         writer.writeheader()
         writer.writerows(manifest)
+    logger.info("Subset building finished | manifest=%s", output_dir / "subset_manifest.csv")
 
 
 if __name__ == "__main__":
