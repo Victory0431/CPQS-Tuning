@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28
+Last updated: 2026-04-28 (afternoon update)
 
 ## Repository
 
@@ -121,17 +121,79 @@ Formal round-1 artifacts will be written under:
 
 ## Live Run Status
 
-Formal selector training has been launched.
+### Selector
 
-- start time: `2026-04-28 11:31` CST
+Formal selector training is complete.
+
 - run name: `selector-round1`
 - local output dir:
   - `repro_outputs/selector_round1`
-- local log file:
-  - `repro_outputs/logs/selector_round1.log`
-- local W&B run dir:
-  - `wandb/run-20260428_113114-kr9s8gw8`
+- key artifacts:
+  - `repro_outputs/selector_round1/checkpoints/best_selector.pth`
+  - `repro_outputs/selector_round1/best_metrics.json`
+- validation metrics:
+  - accuracy: `0.8254`
+  - F1: `0.7734`
+  - AUC: `0.9291`
+  - validation loss: `0.3352`
+
+### Base Eval
+
+Formal `Base` benchmark evaluation is still running.
+
+- output dir:
+  - `repro_outputs/eval/base`
+- log file:
+  - `repro_outputs/logs/base_eval.log`
+- GPU usage:
+  - `GPU0`
+
+### Candidate Scoring
+
+Formal candidate scoring has started.
+
+- candidate dataset:
+  - `/home/qjh/llm_learning/CPQS_lab/data/candidate_data/alpaca_gpt4_data.json`
+- candidate count:
+  - `52,002`
+- output dir:
+  - `repro_outputs/scored_alpaca`
+- log file:
+  - `repro_outputs/logs/score_candidates.log`
+- GPU usage:
+  - `GPU1`
+
+## What Can Start Next
+
+Already runnable now:
+
+- `Base` evaluation
+- candidate scoring
+
+Can start immediately after candidate scoring finishes:
+
+1. `build_subsets`
+2. first LoRA SFT run on `GPU1`
+   - recommended order:
+     - `Full seed 1`
+     - `Random-K seed 1`
+     - `CNN Top-K seed 1`
+     - `CNN Bottom-K seed 1`
+
+Can start once `Base eval` finishes and `GPU0` becomes free:
+
+- a second LoRA SFT stream in parallel on `GPU0`
+- then evaluate finished adapters as they complete
+
+## Current Bottlenecks
+
+- `score_candidates` must finish before `Full / Random-K / Top-K / Bottom-K` subsets can be materialized.
+- `Base eval` does not block subset construction, but it currently occupies one GPU that would otherwise be available for a second parallel LoRA run.
 
 ## Next Immediate Action
 
-Start formal selector training with W&B logging enabled, then continue into candidate scoring and subset construction.
+Let `Base eval` and `score_candidates` continue in parallel, then:
+
+1. build subsets
+2. launch first LoRA SFT on the freed scoring GPU
+3. use the other GPU for the next SFT run as soon as `Base eval` completes
