@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 23:28 CST
+Last updated: 2026-04-28 23:52 CST
 
 ## Repository
 
@@ -187,7 +187,7 @@ Formal selector training is complete.
 
 ### Base Eval
 
-`Base` evaluation is currently running on `GPU1`.
+`Base` evaluation is complete.
 
 - output dir:
   - `repro_outputs/eval/base`
@@ -198,10 +198,10 @@ Formal selector training is complete.
   - predictions saved to `repro_outputs/eval/base/gsm8k_predictions.json`
   - `MATH-500` finished with score `0.122000`
   - predictions saved to `repro_outputs/eval/base/math500_predictions.json`
-- current live progress:
   - `ARC-Challenge` finished with score `0.243174`
   - predictions saved to `repro_outputs/eval/base/arc_challenge_predictions.json`
-  - current benchmark: `MMLU subset`
+  - `MMLU subset` finished with score `0.254386`
+  - predictions saved to `repro_outputs/eval/base/mmlu_subset_predictions.json`
 - current configuration from the last launch:
   - `gsm8k batch=4`
   - `math500 batch=4`
@@ -209,8 +209,9 @@ Formal selector training is complete.
   - `mmlu batch=8`
 - note:
   - exact resume was not possible because the first attempt left progress logs only and no partial prediction files
-  - the current restarted run is the valid one to track
-  - after entering `MMLU subset`, file log updates are sparser because `progress_log_every_batches=20` and the subset is relatively small
+  - the final valid base result is the combination of:
+    - the restarted main run for `gsm8k / math500 / arc_challenge`
+    - the patched `mmlu_subset` recovery run
   - the original `base eval` process did not actually hang in `MMLU subset`; it exited because of a bug in `evaluate_round1.py`
   - root cause:
     - `evaluate_mmlu_subset()` was defined without `logger` and `progress_log_every_batches`
@@ -220,6 +221,7 @@ Formal selector training is complete.
     - fixed the function signature
     - added benchmark-level resume support via `--benchmarks`
     - restarted `Base` for `mmlu_subset` only with log file `repro_outputs/logs/base_eval_resume_mmlu.log`
+    - this recovery completed normally at `2026-04-28 23:44:44 CST`
 
 ### Candidate Scoring
 
@@ -402,19 +404,18 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
 - `Full seed 1` is still the longest remaining training job on the critical path
 - both GPUs are now busy with concurrent evaluation jobs, so throughput per run will be lower than single-job mode
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
-- `nvidia-smi` snapshots can temporarily hide one eval process view, but current `ps` and log checks confirm:
-  - `Base eval` is still alive
+- current `ps` and log checks confirm:
   - `Random-K eval` is still alive
   - `CNN Top-K eval` is still alive
   - `CNN Bottom-K eval` is still alive
+- the recently disappeared `Base mmlu` recovery process exited normally because it finished
 - any eval process launched before the `2026-04-28 23:28 CST` `evaluate_round1.py` fix will still be using the old in-memory code and may terminate when reaching `mmlu_subset`
 
 ## Immediate Next Actions
 
-1. Let `Base` `mmlu_subset` recovery run continue on `GPU1`.
-2. Let the three adapter evals continue through their current benchmark progress.
-3. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script.
-4. After `Full seed 1` finishes, run `Full` evaluation with the patched script.
-5. Then aggregate:
+1. Let the three adapter evals continue through their current benchmark progress.
+2. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script.
+3. After `Full seed 1` finishes, run `Full` evaluation with the patched script.
+4. Then aggregate:
    - per-run raw scores
    - group mean/std
