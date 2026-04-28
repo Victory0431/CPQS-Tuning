@@ -119,6 +119,19 @@ Formal round-1 artifacts will be written under:
 - `repro_outputs/eval`
 - `repro_outputs/tables`
 
+## Live Run Status
+
+Formal selector training has been launched.
+
+- start time: `2026-04-28 11:31` CST
+- run name: `selector-round1`
+- local output dir:
+  - `repro_outputs/selector_round1`
+- local log file:
+  - `repro_outputs/logs/selector_round1.log`
+- local W&B run dir:
+  - `wandb/run-20260428_113114-kr9s8gw8`
+
 ## Next Immediate Action
 
 Start formal selector training with W&B logging enabled, then continue into candidate scoring and subset construction.
