@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -7,7 +8,7 @@ from typing import Dict, List, Optional
 import torch
 from peft import LoraConfig, get_peft_model
 from torch.utils.data import Dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainerCallback, TrainingArguments
 
 from repro.common import (
     DEFAULT_WANDB_ENTITY,
@@ -65,6 +66,45 @@ class SupervisedDataCollator:
         }
 
 
+class FileLoggingCallback(TrainerCallback):
+    def __init__(self, logger, estimated_steps: Optional[int]) -> None:
+        self.logger = logger
+        self.estimated_steps = estimated_steps
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.logger.info(
+            "Trainer loop started | max_steps=%s num_train_epochs=%s per_device_batch=%s grad_accum=%s",
+            state.max_steps,
+            args.num_train_epochs,
+            args.per_device_train_batch_size,
+            args.gradient_accumulation_steps,
+        )
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if not logs:
+            return
+        step = state.global_step
+        total_steps = self.estimated_steps or state.max_steps or 0
+        percent = (100.0 * step / total_steps) if total_steps else None
+        percent_text = f"{percent:.2f}" if percent is not None else "n/a"
+        self.logger.info(
+            "Train log | step=%s/%s progress_pct=%s epoch=%.4f loss=%s grad_norm=%s learning_rate=%s",
+            step,
+            total_steps if total_steps else "unknown",
+            percent_text,
+            state.epoch or 0.0,
+            logs.get("loss"),
+            logs.get("grad_norm"),
+            logs.get("learning_rate"),
+        )
+
+    def on_save(self, args, state, control, **kwargs):
+        self.logger.info("Checkpoint saved | global_step=%s epoch=%.4f", state.global_step, state.epoch or 0.0)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        self.logger.info("Trainer loop ended | final_global_step=%s final_epoch=%.4f", state.global_step, state.epoch or 0.0)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="LoRA SFT for round-1 CPQS comparisons.")
     parser.add_argument("--model_path", required=True)
@@ -120,6 +160,16 @@ def main() -> None:
     logger.info("Training data prepared | raw_records=%s usable_features=%s", len(records), len(features))
 
     dataset = SFTDataset(features)
+    updates_per_epoch = math.ceil(
+        len(dataset) / (cfg.per_device_train_batch_size * cfg.gradient_accumulation_steps)
+    )
+    estimated_steps = math.ceil(updates_per_epoch * cfg.epochs)
+    logger.info(
+        "Training schedule | dataset_size=%s updates_per_epoch=%s estimated_total_steps=%s",
+        len(dataset),
+        updates_per_epoch,
+        estimated_steps,
+    )
 
     model = AutoModelForCausalLM.from_pretrained(
         cfg.model_path,
@@ -167,6 +217,7 @@ def main() -> None:
         args=training_args,
         train_dataset=dataset,
         data_collator=SupervisedDataCollator(tokenizer),
+        callbacks=[FileLoggingCallback(logger, estimated_steps)],
     )
     trainer.train()
     logger.info("Trainer finished")

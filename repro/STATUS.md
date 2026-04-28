@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 (afternoon update)
+Last updated: 2026-04-28 16:46 CST
 
 ## Repository
 
@@ -51,6 +51,11 @@ Current logging policy:
 - every long-running job writes both to stdout and to a timestamped log file path
 - benchmark evaluation saves outputs benchmark-by-benchmark instead of only at the very end
 - candidate scoring writes progress logs and a partial JSONL stream during execution
+- LoRA SFT now also writes trainer loop progress to file, including:
+  - estimated total steps
+  - trainer loop start
+  - periodic `step/loss/epoch/learning_rate`
+  - checkpoint save events
 
 This is now the default expectation for follow-up experiment code.
 
@@ -182,25 +187,28 @@ Formal selector training is complete.
 
 ### Base Eval
 
-`Base` evaluation has been intentionally paused to free `GPU0` for LoRA training.
+`Base` evaluation was started and produced valid progress logs on `GSM8K`, but it is not currently running.
 
 - output dir:
   - `repro_outputs/eval/base`
 - log file:
   - `repro_outputs/logs/base_eval.log`
-- current configuration:
+- latest confirmed progress:
+  - `GSM8K 216 / 1319`
+  - observed throughput around `0.29-0.31 samples/s`
+- current configuration from the last launch:
   - `gsm8k batch=4`
   - `math500 batch=4`
   - `arc batch=8`
   - `mmlu batch=8`
-- logging:
-  - progress logs are now emitted during benchmark execution
+- note:
+  - no final benchmark score has been produced yet
 - next step:
-  - resume after current LoRA/scoring critical-path jobs
+  - relaunch with the newer logging version after a GPU slot becomes available
 
 ### Candidate Scoring
 
-Formal candidate scoring has started.
+Formal candidate scoring is complete.
 
 - candidate dataset:
   - `/home/qjh/llm_learning/CPQS_lab/data/candidate_data/alpaca_gpt4_data.json`
@@ -210,44 +218,40 @@ Formal candidate scoring has started.
   - `repro_outputs/scored_alpaca`
 - log file:
   - `repro_outputs/logs/score_candidates.log`
-- GPU usage:
-  - `GPU1`
 - current configuration:
   - `batch_size=8`
-- early observed throughput:
-  - roughly `27-28 samples/s`
-- early ETA estimate:
-  - roughly `30 minutes` for `52,002` Alpaca candidate records
-- latest observed progress:
-  - around `31,000 / 52,002`
-  - remaining time about `13 minutes`
+- observed throughput:
+  - roughly `26.7-27.0 samples/s`
+- finish time:
+  - completed at `2026-04-28 14:46`
+- key outputs:
+  - `repro_outputs/scored_alpaca/scored_candidates.json`
+  - `repro_outputs/scored_alpaca/scored_candidates.csv`
+  - `repro_outputs/scored_alpaca/scored_candidates.partial.jsonl`
 
-## What Can Start Next
+### Subset Construction
 
-Already runnable now:
+Round-1 subsets are now fully materialized.
 
-- candidate scoring
-- `Full` LoRA
-- `Random-K` subset construction from the raw candidate pool
+- output dir:
+  - `repro_outputs/subsets_round1`
+- log file:
+  - `repro_outputs/logs/build_subsets_round1.log`
+- generated subsets:
+  - `full.json`
+  - `cnn_top_5000.json`
+  - `cnn_bottom_5000.json`
+  - `random_5000_seed_1.json`
+  - `random_5000_seed_2.json`
+  - `random_5000_seed_3.json`
+- manifest:
+  - `repro_outputs/subsets_round1/subset_manifest.csv`
 
-Can start immediately after candidate scoring finishes:
-
-1. `build_subsets`
-2. first LoRA SFT run on `GPU1`
-   - recommended order:
-     - `Full seed 1`
-     - `Random-K seed 1`
-     - `CNN Top-K seed 1`
-     - `CNN Bottom-K seed 1`
-
-Can start once `Base eval` finishes and `GPU0` becomes free:
-
-- a second LoRA SFT stream in parallel on `GPU0`
-- then evaluate finished adapters as they complete
+## Active Training
 
 ### Full LoRA
 
-Formal `Full seed 1` LoRA training has started.
+Formal `Full seed 1` LoRA training is running on `GPU0`.
 
 - output dir:
   - `repro_outputs/lora/full/seed_1`
@@ -258,32 +262,50 @@ Formal `Full seed 1` LoRA training has started.
   - `epochs=3`
   - `lr=5e-5`
   - `max_length=2048`
-  - `LoRA rank=16`
-  - `LoRA alpha=8`
-  - `per_device_batch=1`
-  - `gradient_accumulation=16`
+  - `lora_rank=16`
+  - `lora_alpha=8`
+  - effective batch size `16`
+- current state:
+  - log confirms data preparation completed for `52,002` records
+  - custom file logging for per-step trainer progress was added after this run had already started, so this specific run still has limited local visibility
+  - `wandb` is attached for live tracking
 
-### Random-K
+### Random-K LoRA
 
-`Random-K` training subsets are already materialized:
+Formal `Random-K seed 1` LoRA training is now running on `GPU1`.
 
-- `repro_outputs/subsets_round1/random_5000_seed_1.json`
-- `repro_outputs/subsets_round1/random_5000_seed_2.json`
-- `repro_outputs/subsets_round1/random_5000_seed_3.json`
-
-The next recommended action is:
-
-- start `Random-K seed 1` on `GPU1` as soon as candidate scoring finishes
+- output dir:
+  - `repro_outputs/lora/random_k5000/seed_1`
+- log file:
+  - `repro_outputs/logs/lora_random_k5000_seed1.log`
+- hyperparameters:
+  - `bf16`
+  - `epochs=3`
+  - `lr=5e-5`
+  - `max_length=2048`
+  - `lora_rank=16`
+  - `lora_alpha=8`
+  - effective batch size `16`
+- current state:
+  - training data prepared for `5,000` records
+  - estimated total steps: `936`
+  - trainer loop has started successfully
+  - first logged train step:
+    - `step=10/939`
+    - `epoch=0.0320`
+    - `loss=2.1247`
 
 ## Current Bottlenecks
 
-- `score_candidates` must finish before `Full / Random-K / Top-K / Bottom-K` subsets can be materialized.
-- `Base eval` does not block subset construction, but it currently occupies one GPU that would otherwise be available for a second parallel LoRA run.
+- both GPUs are currently occupied by LoRA training, so `CNN Top-K`, `CNN Bottom-K`, and `Base eval` must wait for the next free slot
+- `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
 
-## Next Immediate Action
+## Immediate Next Actions
 
-Let `Base eval` and `score_candidates` continue in parallel, then:
-
-1. build subsets
-2. launch first LoRA SFT on the freed scoring GPU
-3. use the other GPU for the next SFT run as soon as `Base eval` completes
+1. Let `Full seed 1` and `Random-K seed 1` continue in parallel on the two H200 GPUs.
+2. Launch `CNN Top-K seed 1` as soon as one GPU frees up.
+3. Launch `CNN Bottom-K seed 1` immediately after that.
+4. Resume `Base` evaluation with the improved logging path after a GPU slot is available.
+5. Evaluate each finished adapter immediately and aggregate:
+   - per-run raw scores
+   - group mean/std
