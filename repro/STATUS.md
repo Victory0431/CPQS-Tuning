@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 23:52 CST
+Last updated: 2026-04-28 23:56 CST
 
 ## Repository
 
@@ -363,9 +363,9 @@ Formal `Random-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
 - log file:
   - `repro_outputs/logs/eval_random_k5000_seed1.log`
 - current state:
-  - model and tokenizer loaded
-  - currently running `gsm8k`
-  - latest confirmed progress: `960 / 1319`
+  - `gsm8k` finished with score `0.845337`
+  - current benchmark: `math500`
+  - latest confirmed progress: `160 / 500`
   - note:
     - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
@@ -378,9 +378,8 @@ Formal `CNN Top-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU1`
 - log file:
   - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
 - current state:
-  - model and tokenizer loaded
   - currently running `gsm8k`
-  - latest confirmed progress: `480 / 1319`
+  - latest confirmed progress: `960 / 1319`
   - note:
     - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
@@ -393,9 +392,8 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
 - log file:
   - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
 - current state:
-  - model and tokenizer loaded
-  - currently running `gsm8k`
-  - latest confirmed progress: `720 / 1319`
+  - `gsm8k` finished with score `0.854435`
+  - current benchmark: `math500`
   - note:
     - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
@@ -413,8 +411,8 @@ Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GP
 
 ## Immediate Next Actions
 
-1. Let the three adapter evals continue through their current benchmark progress.
-2. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script.
+1. Let `Random-K / CNN Top-K / CNN Bottom-K` evals continue.
+2. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script if needed.
 3. After `Full seed 1` finishes, run `Full` evaluation with the patched script.
 4. Then aggregate:
    - per-run raw scores

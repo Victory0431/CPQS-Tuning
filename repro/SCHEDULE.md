@@ -1,6 +1,6 @@
 # CPQS Round-1 Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-28 23:52 CST
+Last updated: 2026-04-28 23:56 CST
 
 ## Current State
 
@@ -34,18 +34,20 @@ Last updated: 2026-04-28 23:52 CST
   - `Base` `mmlu_subset` was relaunched on the patched script at `2026-04-28 23:27 CST`
   - the recovery finished normally at `2026-04-28 23:44:44 CST` with score `0.254386`
 - `Random-K seed 1` eval started on `GPU0` at `2026-04-28 22:25 CST`.
-  - latest confirmed progress: `960 / 1319` on `gsm8k`
+  - `gsm8k` is complete with score `0.845337`
+  - current benchmark: `math500`
+  - latest confirmed progress: `160 / 500`
 - `CNN Top-K seed 1` eval started on `GPU1` at `2026-04-28 22:25 CST`.
-  - latest confirmed progress: `480 / 1319` on `gsm8k`
+  - latest confirmed progress: `960 / 1319` on `gsm8k`
 - `CNN Bottom-K seed 1` eval started on `GPU0` at `2026-04-28 22:25 CST`.
-  - latest confirmed progress: `720 / 1319` on `gsm8k`
+  - `gsm8k` is complete with score `0.854435`
+  - current benchmark: `math500`
 
 ## Remaining Tasks
 
 Minimal round-1 closed loop still needed:
 
 - finish `Full seed 1`
-- finish `Base` evaluation
 - finish evaluation for:
   - `Random-K seed 1`
   - `CNN Top-K seed 1`
@@ -104,7 +106,7 @@ Best-effort schedule from the current state:
 Best estimate for the minimal round-1 closed loop:
 
 - if the current training ETAs hold and evaluation starts immediately after GPU slots free up:
-  - `Base eval` is now fully complete
+  - `Base eval` is fully complete
   - `Random-K / Top-K / Bottom-K` evals are already in flight, so the minimal loop may close earlier than the previous sequential estimate if concurrent throughput stays stable
   - those three adapter evals were launched before the `mmlu_subset` fix, so each may still need a short `mmlu_subset`-only recovery run
   - `Full seed 1` training remains the dominant unknown and likely still extends into `2026-04-29`
