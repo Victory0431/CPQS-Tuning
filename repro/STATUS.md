@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 16:46 CST
+Last updated: 2026-04-28 20:22 CST
 
 ## Repository
 
@@ -269,10 +269,14 @@ Formal `Full seed 1` LoRA training is running on `GPU0`.
   - log confirms data preparation completed for `52,002` records
   - custom file logging for per-step trainer progress was added after this run had already started, so this specific run still has limited local visibility
   - `wandb` is attached for live tracking
+  - latest confirmed saved checkpoint:
+    - `step=3251/9750`
+    - `epoch=1.0`
+    - checkpoint write time `2026-04-28 19:34:22 CST`
 
 ### Random-K LoRA
 
-Formal `Random-K seed 1` LoRA training is now running on `GPU1`.
+Formal `Random-K seed 1` LoRA training is complete.
 
 - output dir:
   - `repro_outputs/lora/random_k5000/seed_1`
@@ -287,25 +291,63 @@ Formal `Random-K seed 1` LoRA training is now running on `GPU1`.
   - `lora_alpha=8`
   - effective batch size `16`
 - current state:
-  - training data prepared for `5,000` records
-  - estimated total steps: `936`
-  - trainer loop has started successfully
-  - first logged train step:
-    - `step=10/939`
-    - `epoch=0.0320`
-    - `loss=2.1247`
+  - completed at `2026-04-28 18:14:45 CST`
+  - final adapter saved successfully
+
+### CNN Top-K LoRA
+
+Formal `CNN Top-K seed 1` LoRA training is now running on `GPU1`.
+
+- output dir:
+  - `repro_outputs/lora/cnn_top_k5000/seed_1`
+- log file:
+  - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
+- hyperparameters:
+  - `bf16`
+  - `epochs=3`
+  - `lr=5e-5`
+  - `max_length=2048`
+  - `lora_rank=16`
+  - `lora_alpha=8`
+  - effective batch size `16`
+- current state:
+  - started at `2026-04-28 20:16 CST`
+  - training schedule confirms `936` trainer steps
+  - early ETA after `step=30` is about `84` minutes
+
+### CNN Bottom-K LoRA
+
+Formal `CNN Bottom-K seed 1` LoRA training is now running on `GPU0` alongside `Full seed 1`.
+
+- output dir:
+  - `repro_outputs/lora/cnn_bottom_k5000/seed_1`
+- log file:
+  - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
+- hyperparameters:
+  - `bf16`
+  - `epochs=3`
+  - `lr=5e-5`
+  - `max_length=2048`
+  - `lora_rank=16`
+  - `lora_alpha=8`
+  - effective batch size `16`
+- current state:
+  - started at `2026-04-28 20:16 CST`
+  - training schedule confirms `936` trainer steps
+  - early ETA after `step=20` is about `92` minutes
 
 ## Current Bottlenecks
 
-- both GPUs are currently occupied by LoRA training, so `CNN Top-K`, `CNN Bottom-K`, and `Base eval` must wait for the next free slot
+- both GPUs are currently occupied by LoRA training, so `Base eval` and adapter evaluation jobs must wait for the next free slot
 - `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
+- `Full seed 1` and `CNN Bottom-K seed 1` are currently sharing `GPU0`, so `Full` finish time is now more uncertain than before
 
 ## Immediate Next Actions
 
-1. Let `Full seed 1` and `Random-K seed 1` continue in parallel on the two H200 GPUs.
-2. Launch `CNN Top-K seed 1` as soon as one GPU frees up.
-3. Launch `CNN Bottom-K seed 1` immediately after that.
-4. Resume `Base` evaluation with the improved logging path after a GPU slot is available.
-5. Evaluate each finished adapter immediately and aggregate:
+1. Let `Full seed 1`, `CNN Top-K seed 1`, and `CNN Bottom-K seed 1` continue.
+2. As soon as `GPU1` frees up, run `Base` evaluation.
+3. Then evaluate `Random-K seed 1` and `CNN Top-K seed 1`.
+4. Evaluate `CNN Bottom-K seed 1` as soon as its adapter is ready.
+5. After `Full seed 1` finishes, run `Full` evaluation and aggregate:
    - per-run raw scores
    - group mean/std

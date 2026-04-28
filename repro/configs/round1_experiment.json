@@ -27,7 +27,7 @@
     "learning_rate": 5e-5,
     "max_length": 2048,
     "lora_rank": 16,
-    "lora_alpha": 16
+    "lora_alpha": 8
   },
   "evaluation": {
     "benchmarks": [

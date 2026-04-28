@@ -1,6 +1,7 @@
 import argparse
 import json
 import math
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -70,8 +71,10 @@ class FileLoggingCallback(TrainerCallback):
     def __init__(self, logger, estimated_steps: Optional[int]) -> None:
         self.logger = logger
         self.estimated_steps = estimated_steps
+        self.train_start_time: Optional[float] = None
 
     def on_train_begin(self, args, state, control, **kwargs):
+        self.train_start_time = time.time()
         self.logger.info(
             "Trainer loop started | max_steps=%s num_train_epochs=%s per_device_batch=%s grad_accum=%s",
             state.max_steps,
@@ -87,8 +90,15 @@ class FileLoggingCallback(TrainerCallback):
         total_steps = self.estimated_steps or state.max_steps or 0
         percent = (100.0 * step / total_steps) if total_steps else None
         percent_text = f"{percent:.2f}" if percent is not None else "n/a"
+        elapsed_seconds = max(0.0, time.time() - self.train_start_time) if self.train_start_time else None
+        avg_step_seconds = (elapsed_seconds / step) if elapsed_seconds and step > 0 else None
+        remaining_steps = max(total_steps - step, 0) if total_steps else None
+        eta_seconds = (remaining_steps * avg_step_seconds) if remaining_steps is not None and avg_step_seconds is not None else None
+        elapsed_minutes_text = f"{elapsed_seconds / 60.0:.2f}" if elapsed_seconds is not None else "n/a"
+        avg_step_text = f"{avg_step_seconds:.2f}" if avg_step_seconds is not None else "n/a"
+        eta_minutes_text = f"{eta_seconds / 60.0:.2f}" if eta_seconds is not None else "n/a"
         self.logger.info(
-            "Train log | step=%s/%s progress_pct=%s epoch=%.4f loss=%s grad_norm=%s learning_rate=%s",
+            "Train log | step=%s/%s progress_pct=%s epoch=%.4f loss=%s grad_norm=%s learning_rate=%s elapsed_minutes=%s avg_step_seconds=%s eta_minutes=%s",
             step,
             total_steps if total_steps else "unknown",
             percent_text,
@@ -96,6 +106,9 @@ class FileLoggingCallback(TrainerCallback):
             logs.get("loss"),
             logs.get("grad_norm"),
             logs.get("learning_rate"),
+            elapsed_minutes_text,
+            avg_step_text,
+            eta_minutes_text,
         )
 
     def on_save(self, args, state, control, **kwargs):
