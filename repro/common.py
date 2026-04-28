@@ -250,6 +250,59 @@ def extract_response_hidden_states(
     return hidden.float()
 
 
+def extract_batched_response_hidden_states(
+    tokenizer: AutoTokenizer,
+    model: AutoModelForCausalLM,
+    questions: Sequence[str],
+    answers: Sequence[str],
+    backbone: str,
+    use_layers: str,
+    use_part: str,
+) -> torch.Tensor:
+    user_prompts: List[str] = []
+    full_prompts: List[str] = []
+    for question, answer in zip(questions, answers):
+        user_prompt, full_prompt = render_prompts(tokenizer, question, answer, backbone)
+        user_prompts.append(user_prompt)
+        full_prompts.append(full_prompt)
+
+    user_inputs = tokenizer(user_prompts, return_tensors="pt", padding=True)
+    full_inputs = tokenizer(full_prompts, return_tensors="pt", padding=True).to(model.device)
+    user_lengths = user_inputs["attention_mask"].sum(dim=1).tolist()
+    full_lengths = full_inputs["attention_mask"].sum(dim=1).tolist()
+
+    with torch.no_grad():
+        outputs = model(
+            full_inputs["input_ids"],
+            attention_mask=full_inputs["attention_mask"],
+            output_hidden_states=True,
+        )
+    hidden = torch.stack(outputs.hidden_states, dim=0)
+    hidden = select_hidden_states(hidden, use_layers, use_part, total_layers(model)).float()
+    hidden = hidden.permute(1, 0, 2, 3).contiguous()
+
+    response_lengths = [max(1, int(full_len - user_len)) for user_len, full_len in zip(user_lengths, full_lengths)]
+    max_response_len = max(response_lengths)
+    batch_size, num_layers, _, hidden_size = hidden.shape
+    padded_hidden = torch.zeros(
+        batch_size,
+        num_layers,
+        max_response_len,
+        hidden_size,
+        dtype=hidden.dtype,
+        device=hidden.device,
+    )
+
+    for index, (start_idx, full_len) in enumerate(zip(user_lengths, full_lengths)):
+        response_hidden = hidden[index, :, int(start_idx) : int(full_len), :]
+        response_len = response_hidden.shape[1]
+        if response_len == 0:
+            response_hidden = hidden[index, :, int(full_len) - 1 : int(full_len), :]
+            response_len = 1
+        padded_hidden[index, :, :response_len, :] = response_hidden
+    return padded_hidden
+
+
 def load_selector_examples(
     pos_path: str,
     neg1_path: str,

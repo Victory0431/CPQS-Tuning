@@ -81,6 +81,25 @@ Scoring:
 - script-based only
 - no LLM judge
 
+### Current Candidate Choice
+
+For the current round-1 critical comparison, the scored candidate pool is:
+
+- `alpaca_gpt4_data.json`
+
+Reason for choosing it first:
+
+- smaller and cheaper to score than `reasoning-deepseek-r1-146k.json`
+- better for a first closed-loop replication where the main goal is:
+  - `CNN Top-K vs Random-K`
+  - `CNN Bottom-K vs Random-K`
+  - `Full vs Base`
+- it reduces the confound of switching immediately into a strongly reasoning-specialized candidate pool
+
+Planned follow-up after the first closed loop is stable:
+
+- score and run the same pipeline on `DeepSeek-R1` candidate data as the second general-domain candidate pool
+
 ## Paper-Style Hyperparameters Used For Round 1
 
 Execution baseline is aligned to the paper settings summarized in `/home/qjh/llm_learning/CPQS_lab/orders.txt`:
@@ -171,6 +190,13 @@ Formal `Base` benchmark evaluation is still running.
   - `repro_outputs/logs/base_eval.log`
 - GPU usage:
   - `GPU0`
+- current configuration:
+  - `gsm8k batch=4`
+  - `math500 batch=4`
+  - `arc batch=8`
+  - `mmlu batch=8`
+- logging:
+  - progress logs are now emitted during benchmark execution
 
 ### Candidate Scoring
 
@@ -186,6 +212,12 @@ Formal candidate scoring has started.
   - `repro_outputs/logs/score_candidates.log`
 - GPU usage:
   - `GPU1`
+- current configuration:
+  - `batch_size=8`
+- early observed throughput:
+  - roughly `27-28 samples/s`
+- early ETA estimate:
+  - roughly `30 minutes` for `52,002` Alpaca candidate records
 
 ## What Can Start Next
 

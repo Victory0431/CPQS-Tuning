@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import time
 from pathlib import Path
 from typing import Dict, List
 
@@ -11,9 +12,9 @@ from tqdm import tqdm
 from repro.common import (
     DeepTextCNN,
     append_jsonl,
+    extract_batched_response_hidden_states,
     build_question,
     ensure_dir,
-    extract_response_hidden_states,
     load_backbone,
     load_instruction_records,
     selected_num_layers,
@@ -34,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device_cnn", default="cuda:0")
     parser.add_argument("--device_llm", default="cuda:1")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--progress_log_every", type=int, default=500)
     parser.add_argument("--log_file", default="")
     return parser.parse_args()
@@ -47,11 +49,12 @@ def main() -> None:
     logger = setup_logger("repro.score_candidates", log_file)
     logger.info("Candidate scoring started")
     logger.info(
-        "Config | model=%s checkpoint=%s predict_data=%s limit=%s",
+        "Config | model=%s checkpoint=%s predict_data=%s limit=%s batch_size=%s",
         cfg.model_path,
         cfg.cnn_checkpoint,
         cfg.predict_data,
         cfg.limit,
+        cfg.batch_size,
     )
 
     logger.info("Loading backbone")
@@ -79,36 +82,56 @@ def main() -> None:
     if partial_jsonl.exists():
         partial_jsonl.unlink()
 
-    for index, record in enumerate(tqdm(records, desc="Scoring candidate data"), start=1):
-        question = build_question(record)
-        answer = str(record["output"])
-        hidden = extract_response_hidden_states(
+    total_records = len(records)
+    total_batches = (total_records + cfg.batch_size - 1) // cfg.batch_size
+    start_time = time.time()
+
+    for batch_index, start in enumerate(range(0, total_records, cfg.batch_size), start=1):
+        batch = records[start : start + cfg.batch_size]
+        questions = [build_question(record) for record in batch]
+        answers = [str(record["output"]) for record in batch]
+        hidden = extract_batched_response_hidden_states(
             tokenizer=tokenizer,
             model=llm,
-            question=question,
-            answer=answer,
+            questions=questions,
+            answers=answers,
             backbone=cfg.backbone,
             use_layers=cfg.use_layers,
             use_part=cfg.use_part,
         )
-        hidden = hidden.unsqueeze(0).to(cfg.device_cnn)
+        hidden = hidden.to(cfg.device_cnn)
         with torch.no_grad():
             logits = classifier(hidden)
-            probabilities = F.softmax(logits, dim=1).squeeze(0)
+            probabilities = F.softmax(logits, dim=1)
+            predictions = torch.argmax(probabilities, dim=1)
 
-        scored_record = {
-            **record,
-            "response_length": len(answer),
-            "cpqs_score": float(probabilities[1].item()),
-            "predicted_class": int(torch.argmax(probabilities).item()),
-            "probability_negative": float(probabilities[0].item()),
-            "probability_positive": float(probabilities[1].item()),
-        }
-        scored_records.append(scored_record)
-        append_jsonl(partial_jsonl, scored_record)
+        for local_index, record in enumerate(batch):
+            answer = str(record["output"])
+            scored_record = {
+                **record,
+                "response_length": len(answer),
+                "cpqs_score": float(probabilities[local_index, 1].item()),
+                "predicted_class": int(predictions[local_index].item()),
+                "probability_negative": float(probabilities[local_index, 0].item()),
+                "probability_positive": float(probabilities[local_index, 1].item()),
+            }
+            scored_records.append(scored_record)
+            append_jsonl(partial_jsonl, scored_record)
 
-        if index % cfg.progress_log_every == 0:
-            logger.info("Progress | processed=%s/%s", index, len(records))
+        processed = min(start + len(batch), total_records)
+        if processed % cfg.progress_log_every == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            eta_seconds = (total_records - processed) / throughput if throughput > 0 else -1.0
+            logger.info(
+                "Progress | processed=%s/%s batches=%s/%s throughput=%.2f samples/s eta_minutes=%.2f",
+                processed,
+                total_records,
+                batch_index,
+                total_batches,
+                throughput,
+                eta_seconds / 60 if eta_seconds >= 0 else -1.0,
+            )
 
     scored_records.sort(key=lambda item: item["cpqs_score"], reverse=True)
     logger.info("Sorting completed | total_records=%s", len(scored_records))

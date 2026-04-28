@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import random
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -36,7 +37,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mmlu_subset_seed", type=int, default=42)
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--batch_size_gsm8k", type=int, default=4)
+    parser.add_argument("--batch_size_math500", type=int, default=4)
+    parser.add_argument("--batch_size_arc", type=int, default=8)
+    parser.add_argument("--batch_size_mmlu", type=int, default=8)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--progress_log_every_batches", type=int, default=20)
     parser.add_argument("--log_file", default="")
     return parser.parse_args()
 
@@ -94,7 +100,7 @@ def build_chat_prompt(tokenizer, user_content: str) -> str:
     )
 
 
-def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int) -> Dict[str, Any]:
+def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "gsm8k"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -102,7 +108,9 @@ def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new
 
     scored_rows: List[Dict[str, Any]] = []
     correct = 0
-    for batch in tqdm(list(batched(rows, batch_size)), desc="GSM8K"):
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
         prompts = [
             build_chat_prompt(
                 tokenizer,
@@ -126,10 +134,15 @@ def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new
                     "correct": is_correct,
                 }
             )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info("Benchmark progress | gsm8k | processed=%s/%s batches=%s/%s throughput=%.2f samples/s", processed, len(rows), batch_index, total_batches, throughput)
     return {"dataset": "gsm8k", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
-def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int) -> Dict[str, Any]:
+def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "math500"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -137,7 +150,9 @@ def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_n
 
     scored_rows: List[Dict[str, Any]] = []
     correct = 0
-    for batch in tqdm(list(batched(rows, batch_size)), desc="MATH-500"):
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
         prompts = [
             build_chat_prompt(
                 tokenizer,
@@ -158,10 +173,15 @@ def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_n
                     "correct": is_correct,
                 }
             )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info("Benchmark progress | math500 | processed=%s/%s batches=%s/%s throughput=%.2f samples/s", processed, len(rows), batch_index, total_batches, throughput)
     return {"dataset": "math500", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
-def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int) -> Dict[str, Any]:
+def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "arc_challenge"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -169,7 +189,9 @@ def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_t
 
     scored_rows: List[Dict[str, Any]] = []
     correct = 0
-    for batch in tqdm(list(batched(rows, batch_size)), desc="ARC-Challenge"):
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
         prompts = [
             build_chat_prompt(
                 tokenizer,
@@ -192,6 +214,11 @@ def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_t
                     "correct": is_correct,
                 }
             )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info("Benchmark progress | arc_challenge | processed=%s/%s batches=%s/%s throughput=%.2f samples/s", processed, len(rows), batch_index, total_batches, throughput)
     return {"dataset": "arc_challenge", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
@@ -227,7 +254,9 @@ def evaluate_mmlu_subset(
 
     scored_rows: List[Dict[str, Any]] = []
     correct = 0
-    for batch in tqdm(list(batched(rows, batch_size)), desc="MMLU subset"):
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
         prompts = [
             build_chat_prompt(
                 tokenizer,
@@ -250,6 +279,11 @@ def evaluate_mmlu_subset(
                     "correct": is_correct,
                 }
             )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info("Benchmark progress | mmlu_subset | processed=%s/%s batches=%s/%s throughput=%.2f samples/s", processed, len(rows), batch_index, total_batches, throughput)
     return {
         "dataset": "mmlu_subset",
         "score": correct / len(scored_rows),
@@ -266,12 +300,15 @@ def main() -> None:
     logger = setup_logger("repro.evaluate_round1", log_file)
     logger.info("Evaluation started")
     logger.info(
-        "Config | group=%s seed=%s batch_size=%s max_new_tokens=%s adapter=%s",
+        "Config | group=%s seed=%s max_new_tokens=%s adapter=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
         cfg.group_name,
         cfg.seed,
-        cfg.batch_size,
         cfg.max_new_tokens,
         cfg.adapter_path or "<base>",
+        cfg.batch_size_gsm8k,
+        cfg.batch_size_math500,
+        cfg.batch_size_arc,
+        cfg.batch_size_mmlu,
     )
 
     logger.info("Loading model and tokenizer")
@@ -279,9 +316,9 @@ def main() -> None:
     logger.info("Model and tokenizer loaded")
 
     benchmark_jobs = [
-        ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
-        ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
-        ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size, cfg.max_new_tokens, cfg.limit)),
+        ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_gsm8k, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_math500, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_arc, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
         (
             "mmlu_subset",
             lambda: evaluate_mmlu_subset(
@@ -290,9 +327,11 @@ def main() -> None:
                 cfg.mmlu_path,
                 cfg.mmlu_examples_per_subject,
                 cfg.mmlu_subset_seed,
-                cfg.batch_size,
+                cfg.batch_size_mmlu,
                 cfg.max_new_tokens,
                 cfg.limit,
+                logger,
+                cfg.progress_log_every_batches,
             ),
         ),
     ]
