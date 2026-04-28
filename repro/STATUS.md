@@ -182,14 +182,12 @@ Formal selector training is complete.
 
 ### Base Eval
 
-Formal `Base` benchmark evaluation is still running.
+`Base` evaluation has been intentionally paused to free `GPU0` for LoRA training.
 
 - output dir:
   - `repro_outputs/eval/base`
 - log file:
   - `repro_outputs/logs/base_eval.log`
-- GPU usage:
-  - `GPU0`
 - current configuration:
   - `gsm8k batch=4`
   - `math500 batch=4`
@@ -197,6 +195,8 @@ Formal `Base` benchmark evaluation is still running.
   - `mmlu batch=8`
 - logging:
   - progress logs are now emitted during benchmark execution
+- next step:
+  - resume after current LoRA/scoring critical-path jobs
 
 ### Candidate Scoring
 
@@ -218,13 +218,17 @@ Formal candidate scoring has started.
   - roughly `27-28 samples/s`
 - early ETA estimate:
   - roughly `30 minutes` for `52,002` Alpaca candidate records
+- latest observed progress:
+  - around `31,000 / 52,002`
+  - remaining time about `13 minutes`
 
 ## What Can Start Next
 
 Already runnable now:
 
-- `Base` evaluation
 - candidate scoring
+- `Full` LoRA
+- `Random-K` subset construction from the raw candidate pool
 
 Can start immediately after candidate scoring finishes:
 
@@ -240,6 +244,36 @@ Can start once `Base eval` finishes and `GPU0` becomes free:
 
 - a second LoRA SFT stream in parallel on `GPU0`
 - then evaluate finished adapters as they complete
+
+### Full LoRA
+
+Formal `Full seed 1` LoRA training has started.
+
+- output dir:
+  - `repro_outputs/lora/full/seed_1`
+- log file:
+  - `repro_outputs/logs/lora_full_seed1.log`
+- hyperparameters:
+  - `bf16`
+  - `epochs=3`
+  - `lr=5e-5`
+  - `max_length=2048`
+  - `LoRA rank=16`
+  - `LoRA alpha=8`
+  - `per_device_batch=1`
+  - `gradient_accumulation=16`
+
+### Random-K
+
+`Random-K` training subsets are already materialized:
+
+- `repro_outputs/subsets_round1/random_5000_seed_1.json`
+- `repro_outputs/subsets_round1/random_5000_seed_2.json`
+- `repro_outputs/subsets_round1/random_5000_seed_3.json`
+
+The next recommended action is:
+
+- start `Random-K seed 1` on `GPU1` as soon as candidate scoring finishes
 
 ## Current Bottlenecks
 
