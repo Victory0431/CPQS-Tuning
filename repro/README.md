@@ -46,10 +46,11 @@
 
 - 旧 `Base` 评测结果有误，已修复
 - `Alpaca-GPT4` 不应再以 `GSM8K / MATH-500` 作为主评测
+- `Alpaca-GPT4` 的正式自动评测主线更适合切到 `lm-evaluation-harness + vLLM`
 
 因此当前更优先的是：
 
-- 用新脚本统一重跑 `Base / Full / Random-K / CNN Top-K / CNN Bottom-K`
+- 用统一脚本重跑 `Base / Full / Random-K / CNN Top-K / CNN Bottom-K`
 - 自动评测先对齐到 `MMLU / ARC / HellaSwag / TruthfulQA`
 
 ### 3. 全流程写日志
@@ -59,6 +60,28 @@
 - 追踪训练和评测进度
 - 排查异常退出
 - 回顾每轮实验的实际耗时
+
+## 环境划分
+
+从 `2026-04-29` 起，训练与正式评测分环境执行：
+
+- 训练环境：
+  - `cpqs-tuning`
+- 评测环境：
+  - `cpqs-eval-vllm`
+
+当前已验证可用的评测环境关键版本：
+
+- `vllm==0.8.5.post1`
+- `lm-eval==0.4.9.1`
+- `torch==2.6.0+cu124`
+- `transformers==4.51.3`
+- `tokenizers==0.21.4`
+
+注意：
+
+- 不要在 `cpqs-tuning` 里直接安装 `lm-eval` 或 `vllm`
+- 不要让 `cpqs-eval-vllm` 里的 `transformers` 漂移到 `5.x`
 
 ## 目录中的主要脚本
 
@@ -71,9 +94,13 @@
 - `train_lora.py`
   - 运行 LoRA SFT
 - `evaluate_round1.py`
-  - 当前自动评测主脚本，已支持 `MMLU / ARC / HellaSwag / TruthfulQA`
+  - 历史最小闭环自动评测脚本
 - `prepare_alpaca_benchmarks.py`
   - 准备 `HellaSwag / TruthfulQA` 本地 benchmark 数据
+- `smoke_test_vllm.py`
+  - 对 `Qwen3` chat template 与 `vLLM` 推理做最小单条 smoke test
+- `run_lm_eval_vllm.py`
+  - 使用 `lm-evaluation-harness + vLLM` 运行正式评测，并写时间戳日志
 - `aggregate_results.py`
   - 聚合生成原始分数表与均值方差表
 - `configs/round1_experiment.json`
@@ -90,7 +117,11 @@
 - `repro_outputs/lora`
   - LoRA 训练产物
 - `repro_outputs/eval`
-  - 自动评测结果
+  - 历史自动评测结果
+- `repro_outputs/eval_lm_eval_smoke`
+  - `lm-eval + vLLM` 小批量 smoke 结果
+- `repro_outputs/smoke`
+  - `vLLM` 单条推理 smoke 输出
 - `repro_outputs/tables`
   - 聚合表格
 - `repro_outputs/logs`
@@ -175,7 +206,7 @@ python -m repro.train_lora \
 
 `Full / CNN Top / CNN Bottom` 组只需要更换 `train_data`、`output_dir` 和 `group_name`。
 
-### 5. 自动评测
+### 5. 历史最小闭环自动评测
 
 ```bash
 python -m repro.evaluate_round1 \
@@ -195,7 +226,43 @@ python -m repro.evaluate_round1 \
   --sample_dump_count 30
 ```
 
-### 6. 聚合结果
+### 6. `vLLM` 单条推理 smoke
+
+```bash
+conda activate cpqs-eval-vllm
+cd /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning
+
+python -m repro.smoke_test_vllm \
+  --model_path /home/qjh/llm_learning/base_model/qwen3_8B \
+  --output_path /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/smoke/vllm_smoke_base.json \
+  --log_path /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/vllm_smoke_base.log \
+  --gpu 1 \
+  --max_model_len 2048 \
+  --temperature 0
+```
+
+### 7. `lm-eval + vLLM` 自动评测
+
+```bash
+conda activate cpqs-eval-vllm
+cd /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning
+
+python -m repro.run_lm_eval_vllm \
+  --model_path /home/qjh/llm_learning/base_model/qwen3_8B \
+  --output_dir /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/base_lm_eval_vllm \
+  --log_path /home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/base_lm_eval_vllm.log \
+  --tasks mmlu arc_challenge hellaswag truthfulqa_mc1 \
+  --gpu 1 \
+  --batch_size auto:4 \
+  --max_batch_size 64 \
+  --max_model_len 2048 \
+  --max_gen_toks 2048 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --hf_offline
+```
+
+### 8. 聚合结果
 
 ```bash
 python -m repro.aggregate_results \

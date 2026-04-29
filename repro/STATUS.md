@@ -1,6 +1,6 @@
 # CPQS 复现状态
 
-最后更新：2026-04-29 19:36 CST
+最后更新：2026-04-29 20:55 CST
 
 ## 一、环境与仓库
 
@@ -10,8 +10,10 @@
   - `origin -> https://github.com/Victory0431/CPQS-Tuning`
 - 上游仓库：
   - `upstream -> https://github.com/renllll/CPQS-Tuning`
-- conda 环境：
+- 训练环境：
   - `cpqs-tuning`
+- 评测环境：
+  - `cpqs-eval-vllm`
 - 基础模型：
   - `/home/qjh/llm_learning/base_model/qwen3_8B`
 - W&B 项目：
@@ -136,7 +138,7 @@
 
 - `/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/prepare_alpaca_benchmarks.log`
 
-### 2. 评测脚本已扩展支持
+### 2. 历史评测脚本已扩展支持
 
 当前 `evaluate_round1.py` 已支持：
 
@@ -144,25 +146,15 @@
 - `arc_challenge`
 - `hellaswag`
 - `truthfulqa_mc1`
-
-以及原有：
-
 - `gsm8k`
 - `math500`
 - `mmlu_subset`
 
-### 3. 小批量 smoke test 已完成
+### 3. 历史小批量 smoke test 已完成
 
 本地 smoke 目录：
 
 - `repro_outputs/smoke_eval_alpaca_auto`
-
-本次 smoke 仅测前 `20` 条，目的是验证：
-
-- prompt 是否正确
-- 自动评分是否通
-- 时间戳日志是否正常
-- 样例文件是否正常落盘
 
 smoke 结果：
 
@@ -174,11 +166,103 @@ smoke 结果：
 说明：
 
 - 这组数字**不是正式结果**
-- 它只表示脚本链路已经跑通
+- 它只表示旧主线脚本链路已经跑通
 
-## 六、当前运行中的任务
+## 六、`lm-eval + vLLM` 主线已经接通
 
-截至 `2026-04-29 19:23 CST`，当前还能确认在跑的 GPU 任务只有：
+### 1. 已完成独立评测环境搭建
+
+当前已验证可用版本：
+
+- `vllm = 0.8.5.post1`
+- `lm_eval = 0.4.9.1`
+- `torch = 2.6.0+cu124`
+- `transformers = 4.51.3`
+- `tokenizers = 0.21.4`
+
+### 2. 已修复 `vLLM` 与 `transformers` 版本兼容问题
+
+第一次安装后，`pip` 自动拉取了：
+
+- `transformers 5.7.0`
+- `tokenizers 0.22.2`
+
+这会导致 `Qwen3` 在 `vLLM 0.8.5.post1` 下报错：
+
+- `AttributeError: Qwen2Tokenizer has no attribute all_special_tokens_extended`
+
+现已回退到：
+
+- `transformers 4.51.3`
+- `tokenizers 0.21.4`
+
+问题已解决。
+
+### 3. `vLLM` 单条推理 smoke 已通过
+
+输出文件：
+
+- `repro_outputs/smoke/vllm_smoke_base.json`
+
+日志：
+
+- `repro_outputs/logs/vllm_smoke_base.log`
+
+当前已确认：
+
+- `Qwen3` chat template 可正确应用
+- `enable_thinking=false` 可稳定工作
+- `temperature=0` 推理正常
+
+### 4. `lm-eval + vLLM` 四 benchmark smoke 已通过
+
+本次 smoke 使用：
+
+- benchmark：
+  - `MMLU`
+  - `ARC-Challenge`
+  - `HellaSwag`
+  - `TruthfulQA MC1`
+- `limit=10`
+- `batch_size=auto:4`
+- `max_batch_size=64`
+- `temperature=0`
+- `max_model_len=2048`
+
+输出目录：
+
+- `repro_outputs/eval_lm_eval_smoke`
+
+日志：
+
+- `repro_outputs/logs/lm_eval_smoke_base.log`
+
+说明：
+
+- 这组结果只用于验证 `lm-eval + vLLM` 链路，不作为正式结论
+- 第一次 smoke 期间，`MMLU` 已完成本地缓存构建，后续正式跑会更快
+
+### 5. Base 正式全量评测已启动
+
+当前正在运行：
+
+- `Base | lm-eval + vLLM | full benchmarks`
+
+tmux：
+
+- `cpqs_lmeval_base_vllm`
+
+日志：
+
+- `repro_outputs/logs/base_lm_eval_vllm.log`
+
+输出目录：
+
+- `repro_outputs/eval/base_lm_eval_vllm`
+
+## 七、当前运行中的任务
+
+截至 `2026-04-29 20:55 CST`，当前还能确认在跑的 GPU 任务有：
 
 ### GPU0
 
@@ -190,18 +274,21 @@ smoke 结果：
 
 ### GPU1
 
-- 当前空闲
+- `Base | lm-eval + vLLM | full benchmarks`
+  - tmux：`cpqs_lmeval_base_vllm`
+  - 日志：
+    - `repro_outputs/logs/base_lm_eval_vllm.log`
 
-## 七、接下来的正确路线
+## 八、接下来的正确路线
 
 下一阶段建议按这个顺序推进：
 
-1. 固定 `Alpaca-GPT4` 自动评测协议为：
+1. 等待 `Base` 正式全量评测完成并记录结果：
    - `MMLU`
    - `ARC-Challenge`
    - `HellaSwag`
    - `TruthfulQA`
-2. 用统一的新脚本重跑：
+2. 用统一的 `lm-eval + vLLM` 脚本重跑：
    - `Base`
    - `Full`
    - `Random-K`
@@ -213,10 +300,10 @@ smoke 结果：
 4. 之后如果要跑：
    - `GSM8K / MATH-500`
    - `HumanEval / GPQA`
-   
+
    应切换到 `Reasoning-DeepSeek` 路线，而不是继续沿用 `Alpaca-GPT4`
 
-## 八、提醒文档
+## 九、提醒文档
 
 为避免后续再次犯同类错误，已经新增两份文档：
 

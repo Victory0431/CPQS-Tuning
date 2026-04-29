@@ -1,6 +1,6 @@
 # Alpaca 自动评测协议
 
-最后更新：2026-04-29 19:36 CST
+最后更新：2026-04-29 20:55 CST
 
 ## 一、适用范围
 
@@ -29,7 +29,7 @@
 - `ARC-Challenge`
   - `/home/qjh/llm_learning/CPQS_lab/data/benchmarks/arc_challenge`
 - `MMLU full`
-  - `/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/eval/Open LLM Leaderboard/MMLU/mmlu_data/mmlu_test.json`
+  - 由 `lm-evaluation-harness` 自动管理与缓存
 
 ### 新增本地数据
 
@@ -42,54 +42,69 @@
 
 - [prepare_alpaca_benchmarks.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/prepare_alpaca_benchmarks.py)
 
-## 四、当前脚本支持
+## 四、当前正式实现
 
-评测脚本：
+当前已经切换为：
 
-- [evaluate_round1.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/evaluate_round1.py)
+- `lm-evaluation-harness + vLLM`
 
-新增支持的 benchmark 标识：
+统一入口脚本：
 
-- `mmlu_full`
-- `arc_challenge`
-- `hellaswag`
-- `truthfulqa_mc1`
+- [run_lm_eval_vllm.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/run_lm_eval_vllm.py)
+- [smoke_test_vllm.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/smoke_test_vllm.py)
 
 说明：
 
-- `truthfulqa_mc1` 当前使用的是 `truthful_qa / multiple_choice` 的自动多选评分
-- 这是不依赖大模型 judge 的版本
+- `truthfulqa_mc1` 使用 `truthful_qa / multiple_choice` 的自动多选评分
+- 不依赖大模型 judge
+- 与论文“部署和推理使用 `vLLM`”的描述更一致
 
 ## 五、推荐运行顺序
 
-### 1. 先做 smoke test
-
-建议每次改完脚本后，先跑：
-
-- `limit=20`
-- `sample_dump_count=10`
+### 1. 先做 `vLLM` 单条推理 smoke
 
 目的：
 
-- 检查 prompt 格式
-- 检查自动抽取
-- 检查日志是否有持续输出
-- 检查样例文件是否能人工核对
+- 检查 `Qwen3` chat template 是否正确
+- 检查 `enable_thinking=false` 是否生效
+- 检查 `vLLM` 与模型版本是否兼容
 
-### 2. smoke test 通过后再开全量
+### 2. 再做 `lm-eval + vLLM` 小批量 smoke
+
+建议：
+
+- `limit=10`
+- benchmark 直接覆盖：
+  - `MMLU`
+  - `ARC-Challenge`
+  - `HellaSwag`
+  - `TruthfulQA MC1`
+
+目的：
+
+- 检查 benchmark 名称与数据下载是否正常
+- 检查 `apply_chat_template` 是否正确接入
+- 检查日志是否有持续输出
+- 检查 `MMLU` 子任务样例是否能正常落盘
+
+### 3. smoke test 通过后再开全量
 
 正式跑法建议：
 
 - `enable_thinking=false`
-- `do_sample=true`
-- `temperature=0.7`
-- `top_p=0.8`
-- `top_k=20`
+- `temperature=0`
+- `bf16`
+- `max_model_len=2048`
+- `batch_size=auto:4`
+- `max_batch_size=64`
+- smoke 已经把四个 benchmark 缓存到本地后，正式跑建议加：
+  - `--hf_offline`
 
 说明：
 
-- 当前 `Qwen3-8B` 在这套自动 benchmark 上，`non-thinking` 更稳定
-- `thinking` 模式更容易在 `max_new_tokens=512` 内截断，从而影响自动评分
+- `Qwen3-8B` 在这条自动 benchmark 主线上，`non-thinking` 更稳
+- `auto:4 + max_batch_size=64` 已在 `H200` 上通过 smoke
+- 第一次全量 `MMLU` 会有冷启动缓存成本，后续会更快
 
 ## 六、当前不建议做的事
 
