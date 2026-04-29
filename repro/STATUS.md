@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-29 09:46 CST
+Last updated: 2026-04-29 11:03 CST
 
 ## Repository And Environment
 
@@ -96,15 +96,22 @@ Completed:
 - `CNN Bottom-K seed 1`
   - adapter: `repro_outputs/lora/cnn_bottom_k5000/seed_1/final_adapter`
 
-Incomplete:
+In progress:
 
 - `Full seed 1`
-  - latest checkpoint: `repro_outputs/lora/full/seed_1/checkpoint-3251`
-  - latest confirmed trainer state:
-    - global step `3251 / 9750`
-    - epoch `1.0 / 3.0`
+  - resumed from: `repro_outputs/lora/full/seed_1/checkpoint-3251`
+  - latest confirmed log snapshot:
+    - global step `3990 / 9753`
+    - epoch `1.2277 / 3.0`
   - no `final_adapter` exists yet
-  - this run must be resumed, not treated as complete
+- `Random-K seed 2`
+  - started at `2026-04-29 11:00 CST`
+  - output dir:
+    - `repro_outputs/lora/random_k5000/seed_2`
+  - latest confirmed log snapshot:
+    - dataset size `5000`
+    - estimated total steps `939`
+    - trainer loop started normally
 
 ## Evaluation Status
 
@@ -125,52 +132,37 @@ Files:
 
 ### Random-K Seed 1
 
-Partially completed under `repro_outputs/eval/random_k5000_seed1`.
+Completed under `repro_outputs/eval/random_k5000_seed1`.
 
-- finished:
-  - `gsm8k = 0.8453373768006065`
-- missing:
-  - `math500`
-  - `arc_challenge`
-  - `mmlu_subset`
-
-Latest log evidence:
-
-- `2026-04-28 23:53:11 CST`
-- progress reached `math500 160 / 500`
-- process later stopped before writing additional benchmark outputs
+- `gsm8k = 0.8453373768006065`
+- `math500 = 0.47`
+- `arc_challenge = 0.3174061433447099`
+- `mmlu_subset = 0.2894736842105263`
 
 ### CNN Bottom-K Seed 1
 
-Partially completed under `repro_outputs/eval/cnn_bottom_k5000_seed1`.
+Completed under `repro_outputs/eval/cnn_bottom_k5000_seed1`.
 
-- finished:
-  - `gsm8k = 0.8544351781652767`
-- missing:
-  - `math500`
-  - `arc_challenge`
-  - `mmlu_subset`
-
-Latest log evidence:
-
-- `2026-04-28 23:57:57 CST`
-- progress reached `math500 80 / 500`
-- process later stopped before writing additional benchmark outputs
+- `gsm8k = 0.8544351781652767`
+- `math500 = 0.434`
+- `arc_challenge = 0.2858361774744027`
+- `mmlu_subset = 0.2543859649122807`
 
 ### CNN Top-K Seed 1
 
-Interrupted before any benchmark result was saved.
+In progress under `repro_outputs/eval/cnn_top_k5000_seed1`.
 
-- output dir exists:
-  - `repro_outputs/eval/cnn_top_k5000_seed1`
-- no `run_scores.json` exists
-- latest log evidence:
-  - `2026-04-28 23:56:40 CST`
-  - progress reached `gsm8k 1040 / 1319`
+- completed so far:
+  - `gsm8k = 0.7892342683851402`
+- current benchmark:
+  - `math500`
+- latest confirmed log evidence:
+  - `2026-04-29 10:55:59 CST`
+  - `gsm8k` finished and `math500` started
 
 ### Full Seed 1
 
-Not started because `Full seed 1` training is not finished.
+Not started yet because `Full seed 1` training is still in progress.
 
 ## Evaluation Script Bug Already Fixed
 
@@ -225,30 +217,26 @@ That confirmed the previous long jobs had not completed end-to-end and required 
 
 ### Active Snapshot
 
-As of `2026-04-29 09:44 CST`, the following jobs were relaunched and are active:
+As of `2026-04-29 10:59 CST`, the critical-path jobs still active are:
 
 - `Full seed 1` resume training
   - GPU: `GPU0`
   - PID: `565634`
   - session: `tmux cpqs_full_seed1_resume`
-  - checkpoint: `checkpoint-3251`
-- `Random-K seed 1` eval resume
-  - GPU: `GPU0`
-  - PID: `565640`
-  - session: `tmux cpqs_eval_random_seed1_resume`
-  - benchmarks: `math500, arc_challenge, mmlu_subset`
-- `CNN Top-K seed 1` eval restart
+- `CNN Top-K seed 1` eval
   - GPU: `GPU1`
   - PID: `565643`
   - session: `tmux cpqs_eval_top_seed1`
-  - benchmarks: `gsm8k, math500, arc_challenge, mmlu_subset`
-- `CNN Bottom-K seed 1` eval resume
-  - GPU: `GPU1`
-  - PID: `565646`
-  - session: `tmux cpqs_eval_bottom_seed1_resume`
-  - benchmarks: `math500, arc_challenge, mmlu_subset`
 
-Current eval batch sizes for all relaunched eval jobs:
+At `2026-04-29 11:00 CST`, an additional second-wave job was launched:
+
+- `Random-K seed 2` training
+  - session: `tmux cpqs_lora_random_seed2`
+  - PID: `663510`
+  - latest confirmed status:
+    - trainer loop started at `2026-04-29 11:00:52 CST`
+
+Current eval batch sizes:
 
 - `gsm8k = 8`
 - `math500 = 8`
@@ -257,26 +245,25 @@ Current eval batch sizes for all relaunched eval jobs:
 
 ## Remaining Work For The Minimal Closed Loop
 
-1. Resume `Full seed 1` from `checkpoint-3251`.
-2. Finish `CNN Top-K seed 1` evaluation from scratch.
-3. Resume `Random-K seed 1` evaluation for:
-   - `math500`
-   - `arc_challenge`
-   - `mmlu_subset`
-4. Resume `CNN Bottom-K seed 1` evaluation for:
-   - `math500`
-   - `arc_challenge`
-   - `mmlu_subset`
-5. Run `Full seed 1` evaluation after training finishes.
-6. Generate result tables:
+1. Finish `CNN Top-K seed 1` evaluation.
+2. Finish `Full seed 1` training.
+3. Run `Full seed 1` evaluation after training finishes.
+4. Generate result tables:
    - per-run raw score table
    - group mean/std summary table
+5. Continue second-wave seed runs:
+   - `Random-K seed 2` now running
+   - `Random-K seed 3` pending
+   - `CNN Top-K seed 2` pending
+   - `CNN Top-K seed 3` pending
+   - `CNN Bottom-K seed 2` pending
+   - `CNN Bottom-K seed 3` pending
 
 ## Next Expansion After Minimal Closure
 
-Not started yet:
+Current second-wave state:
 
-- `Random-K seed 2`
+- `Random-K seed 2` running
 - `Random-K seed 3`
 - `CNN Top-K seed 2`
 - `CNN Top-K seed 3`
