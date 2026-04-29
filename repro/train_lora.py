@@ -137,8 +137,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wandb_project", default=DEFAULT_WANDB_PROJECT)
     parser.add_argument("--wandb_entity", default=DEFAULT_WANDB_ENTITY)
     parser.add_argument("--disable_wandb", action="store_true")
+    parser.add_argument("--resume_from_checkpoint", default="")
+    parser.add_argument("--auto_resume_latest_checkpoint", action="store_true")
     parser.add_argument("--log_file", default="")
     return parser.parse_args()
+
+
+def find_latest_checkpoint(output_dir: Path) -> Optional[Path]:
+    checkpoints: List[Path] = []
+    for path in output_dir.glob("checkpoint-*"):
+        if not path.is_dir():
+            continue
+        try:
+            int(path.name.split("-")[-1])
+        except ValueError:
+            continue
+        checkpoints.append(path)
+    if not checkpoints:
+        return None
+    return max(checkpoints, key=lambda path: int(path.name.split("-")[-1]))
 
 
 def main() -> None:
@@ -151,6 +168,18 @@ def main() -> None:
     logger = setup_logger("repro.train_lora", log_file)
     logger.info("LoRA training started")
     logger.info("Config | group=%s seed=%s output_dir=%s", cfg.group_name, cfg.seed, output_dir)
+
+    resume_checkpoint: Optional[Path] = None
+    if cfg.resume_from_checkpoint:
+        resume_checkpoint = Path(cfg.resume_from_checkpoint)
+    elif cfg.auto_resume_latest_checkpoint:
+        resume_checkpoint = find_latest_checkpoint(output_dir)
+    if resume_checkpoint is not None:
+        logger.info("Resume requested | checkpoint=%s", resume_checkpoint)
+        if not resume_checkpoint.exists():
+            raise FileNotFoundError(f"Resume checkpoint not found: {resume_checkpoint}")
+    else:
+        logger.info("Resume requested | checkpoint=<none>")
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
@@ -232,7 +261,7 @@ def main() -> None:
         data_collator=SupervisedDataCollator(tokenizer),
         callbacks=[FileLoggingCallback(logger, estimated_steps)],
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=str(resume_checkpoint) if resume_checkpoint is not None else None)
     logger.info("Trainer finished")
     trainer.save_model(str(output_dir / "final_adapter"))
     tokenizer.save_pretrained(str(output_dir / "final_adapter"))

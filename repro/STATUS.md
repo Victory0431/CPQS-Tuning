@@ -1,419 +1,295 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-28 23:56 CST
+Last updated: 2026-04-29 09:46 CST
 
-## Repository
+## Repository And Environment
 
 - Local repo: `/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning`
 - Fork remote: `origin -> https://github.com/Victory0431/CPQS-Tuning`
 - Upstream remote: `upstream -> https://github.com/renllll/CPQS-Tuning`
+- Conda env: `cpqs-tuning`
+- Base model: `/home/qjh/llm_learning/base_model/qwen3_8B`
+- W&B project: `https://wandb.ai/jiahongqin1-ucas-hias/CPQS_research`
 
-## Completed
+## Scope Of This Round
 
-- Bound local repo to the user fork and preserved upstream.
-- Created a clean `repro/` pipeline for round-1 experiments.
-- Added scripts for:
-  - selector training
-  - candidate scoring
-  - subset building
-  - LoRA SFT
-  - automatic evaluation
-  - result aggregation
-- Added experiment config in `repro/configs/round1_experiment.json`.
-- Smoke-tested:
-  - selector training pipeline
-  - automatic evaluation pipeline
-- Installed and verified `wandb` in the `cpqs-tuning` environment.
+This round is the user-approved minimal closed loop, not the full paper evaluation package.
 
-## W&B Status
+- candidate pool: `alpaca_gpt4_data.json`
+- groups:
+  - `Base`
+  - `Full`
+  - `Random-K (K=5000)`
+  - `CNN Top-K (K=5000)`
+  - `CNN Bottom-K (K=5000)`
+- benchmarks:
+  - `GSM8K`
+  - `MATH-500`
+  - `ARC-Challenge`
+  - `MMLU subset`
+- scoring:
+  - script-based only
+  - no LLM judge
+  - no AlpacaEval
 
-- `wandb` package is installed in `cpqs-tuning`.
-- API access is working through `/home/qjh/.netrc`.
-- Verified account:
-  - username: `jiahongqin1`
-  - entity: `jiahongqin1-ucas-hias`
-- Target project:
-  - `https://wandb.ai/jiahongqin1-ucas-hias/CPQS_research`
+## Paper-Alignment Notes
 
-## Runtime Logging
-
-The `repro/` long-running scripts now use timestamped logs.
-
-- `train_selector.py`
-- `train_lora.py`
-- `score_candidates.py`
-- `evaluate_round1.py`
-- `build_subsets.py`
-- `aggregate_results.py`
-
-Current logging policy:
-
-- every long-running job writes both to stdout and to a timestamped log file path
-- benchmark evaluation saves outputs benchmark-by-benchmark instead of only at the very end
-- candidate scoring writes progress logs and a partial JSONL stream during execution
-- LoRA SFT now also writes trainer loop progress to file, including:
-  - estimated total steps
-  - trainer loop start
-  - periodic `step/loss/epoch/learning_rate`
-  - checkpoint save events
-
-This is now the default expectation for follow-up experiment code.
-
-## vLLM Status
-
-- `vllm` is not currently installed in the `cpqs-tuning` environment
-- migrating evaluation to `vLLM` is therefore a code-and-environment change, not just a flag switch
-
-## Round-1 Experimental Scope
-
-Fixed comparison groups:
-
-- `Base`
-- `Full SFT`, seed 1 first
-- `Random-K`, `K=5000`, seeds 1/2/3
-- `CNN Top-K`, `K=5000`, seed 1 first, then seeds 2/3
-- `CNN Bottom-K`, `K=5000`, seed 1 first, then seeds 2/3
-
-Benchmarks:
-
-- `GSM8K`
-- `MATH-500`
-- `ARC-Challenge`
-- `MMLU subset`
-
-Scoring:
-
-- script-based only
-- no LLM judge
-
-### Current Candidate Choice
-
-For the current round-1 critical comparison, the scored candidate pool is:
-
-- `alpaca_gpt4_data.json`
-
-Reason for choosing it first:
-
-- smaller and cheaper to score than `reasoning-deepseek-r1-146k.json`
-- better for a first closed-loop replication where the main goal is:
-  - `CNN Top-K vs Random-K`
-  - `CNN Bottom-K vs Random-K`
-  - `Full vs Base`
-- it reduces the confound of switching immediately into a strongly reasoning-specialized candidate pool
-
-Planned follow-up after the first closed loop is stable:
-
-- score and run the same pipeline on `DeepSeek-R1` candidate data as the second general-domain candidate pool
-
-## Paper-Style Hyperparameters Used For Round 1
-
-Execution baseline is aligned to the paper settings summarized in `/home/qjh/llm_learning/CPQS_lab/orders.txt`:
-
-- LoRA
-- `bf16`
-- `3` epochs
-- learning rate `5e-5`
-- effective batch size `16`
-- max sequence length `2048`
-- LoRA rank `16`
-
-Additional implementation note:
-
-- CPQS selector training keeps the original repo logic for hidden-state extraction:
-  - same base model as the target model family
+- LoRA SFT hyperparameters are fixed across groups:
+  - same base model
+  - `3` epochs
+  - learning rate `5e-5`
+  - max length `2048`
+  - LoRA rank `16`
+  - same prompt format
+  - only the training subset changes
+- Selector hidden-state extraction follows the original repo logic:
   - build `user-only` and `user+assistant` prompts
   - compute the assistant start boundary from the `user-only` prompt length
   - keep only assistant response hidden states
-  - feed response hidden states to the CNN selector
+  - feed those response hidden states into the CNN selector
+- Evaluation is intentionally narrower than the paper's Alpaca evaluation protocol.
+  - current results are valid for the internal `Base / Full / Random / Top / Bottom` comparison
+  - current results are not yet a strict reproduction of the paper's Alpaca benchmark section
 
-## Current Execution Plan
+## Completed Pipeline Stages
 
-Stage 1:
+### Selector Training
 
-1. Train the selector on the 15k high/low-quality set.
-2. Score `alpaca_gpt4_data.json`.
-3. Build `Full / Random-K / CNN Top-K / CNN Bottom-K`.
+Completed under `repro_outputs/selector_round1`.
 
-Stage 2:
-
-1. Run `Base` evaluation.
-2. Start LoRA SFT runs.
-3. Evaluate every finished adapter immediately.
-
-Stage 3:
-
-1. Aggregate:
-   - per-run raw score table
-   - group mean/std summary table
-2. Focus on:
-   - `CNN Top-K vs Random-K`
-   - `CNN Bottom-K vs Random-K`
-   - `Full vs Base`
-   - `CNN Top-K vs Full`
-
-## Current Outputs
-
-Smoke-test artifacts already exist under:
-
-- `repro_outputs/smoke_selector`
-- `repro_outputs/smoke_eval_base`
-
-Formal round-1 artifacts will be written under:
-
-- `repro_outputs/selector_round1`
-- `repro_outputs/scored_alpaca`
-- `repro_outputs/subsets_round1`
-- `repro_outputs/lora`
-- `repro_outputs/eval`
-- `repro_outputs/tables`
-
-## Live Run Status
-
-### Selector
-
-Formal selector training is complete.
-
-- run name: `selector-round1`
-- local output dir:
-  - `repro_outputs/selector_round1`
-- key artifacts:
+- best checkpoint:
   - `repro_outputs/selector_round1/checkpoints/best_selector.pth`
-  - `repro_outputs/selector_round1/best_metrics.json`
-- validation metrics:
+- best metrics:
   - accuracy: `0.8254`
   - F1: `0.7734`
   - AUC: `0.9291`
   - validation loss: `0.3352`
 
-### Base Eval
-
-`Base` evaluation is complete.
-
-- output dir:
-  - `repro_outputs/eval/base`
-- log file:
-  - `repro_outputs/logs/base_eval.log`
-- completed so far:
-  - `GSM8K` finished with score `0.359363`
-  - predictions saved to `repro_outputs/eval/base/gsm8k_predictions.json`
-  - `MATH-500` finished with score `0.122000`
-  - predictions saved to `repro_outputs/eval/base/math500_predictions.json`
-  - `ARC-Challenge` finished with score `0.243174`
-  - predictions saved to `repro_outputs/eval/base/arc_challenge_predictions.json`
-  - `MMLU subset` finished with score `0.254386`
-  - predictions saved to `repro_outputs/eval/base/mmlu_subset_predictions.json`
-- current configuration from the last launch:
-  - `gsm8k batch=4`
-  - `math500 batch=4`
-  - `arc batch=8`
-  - `mmlu batch=8`
-- note:
-  - exact resume was not possible because the first attempt left progress logs only and no partial prediction files
-  - the final valid base result is the combination of:
-    - the restarted main run for `gsm8k / math500 / arc_challenge`
-    - the patched `mmlu_subset` recovery run
-  - the original `base eval` process did not actually hang in `MMLU subset`; it exited because of a bug in `evaluate_round1.py`
-  - root cause:
-    - `evaluate_mmlu_subset()` was defined without `logger` and `progress_log_every_batches`
-    - the caller passed those arguments
-    - result: the process crashed immediately when `mmlu_subset` started
-  - remediation applied:
-    - fixed the function signature
-    - added benchmark-level resume support via `--benchmarks`
-    - restarted `Base` for `mmlu_subset` only with log file `repro_outputs/logs/base_eval_resume_mmlu.log`
-    - this recovery completed normally at `2026-04-28 23:44:44 CST`
-
 ### Candidate Scoring
 
-Formal candidate scoring is complete.
+Completed under `repro_outputs/scored_alpaca`.
 
-- candidate dataset:
-  - `/home/qjh/llm_learning/CPQS_lab/data/candidate_data/alpaca_gpt4_data.json`
-- candidate count:
-  - `52,002`
-- output dir:
-  - `repro_outputs/scored_alpaca`
-- log file:
-  - `repro_outputs/logs/score_candidates.log`
-- current configuration:
-  - `batch_size=8`
-- observed throughput:
-  - roughly `26.7-27.0 samples/s`
-- finish time:
-  - completed at `2026-04-28 14:46`
-- key outputs:
+- main outputs:
   - `repro_outputs/scored_alpaca/scored_candidates.json`
   - `repro_outputs/scored_alpaca/scored_candidates.csv`
-  - `repro_outputs/scored_alpaca/scored_candidates.partial.jsonl`
 
-### Subset Construction
+### Subset Building
 
-Round-1 subsets are now fully materialized.
+Completed under `repro_outputs/subsets_round1`.
 
-- output dir:
-  - `repro_outputs/subsets_round1`
-- log file:
-  - `repro_outputs/logs/build_subsets_round1.log`
-- generated subsets:
-  - `full.json`
-  - `cnn_top_5000.json`
-  - `cnn_bottom_5000.json`
-  - `random_5000_seed_1.json`
-  - `random_5000_seed_2.json`
-  - `random_5000_seed_3.json`
-- manifest:
-  - `repro_outputs/subsets_round1/subset_manifest.csv`
+- `full.json`
+- `random_5000_seed_1.json`
+- `random_5000_seed_2.json`
+- `random_5000_seed_3.json`
+- `cnn_top_5000.json`
+- `cnn_bottom_5000.json`
+- `subset_manifest.csv`
 
-## Active Training
+### LoRA Training
 
-### Full LoRA
+Completed:
 
-Formal `Full seed 1` LoRA training is still running on `GPU0`.
+- `Random-K seed 1`
+  - adapter: `repro_outputs/lora/random_k5000/seed_1/final_adapter`
+- `CNN Top-K seed 1`
+  - adapter: `repro_outputs/lora/cnn_top_k5000/seed_1/final_adapter`
+- `CNN Bottom-K seed 1`
+  - adapter: `repro_outputs/lora/cnn_bottom_k5000/seed_1/final_adapter`
 
-- output dir:
-  - `repro_outputs/lora/full/seed_1`
-- log file:
-  - `repro_outputs/logs/lora_full_seed1.log`
-- hyperparameters:
-  - `bf16`
-  - `epochs=3`
-  - `lr=5e-5`
-  - `max_length=2048`
-  - `lora_rank=16`
-  - `lora_alpha=8`
-  - effective batch size `16`
-- current state:
-  - log confirms data preparation completed for `52,002` records
-  - custom file logging for per-step trainer progress was added after this run had already started, so this specific run still has limited local visibility
-  - `wandb` is attached for live tracking
-  - latest confirmed saved checkpoint:
-    - `step=3251/9750`
-    - `epoch=1.0`
-    - checkpoint write time `2026-04-28 19:34:22 CST`
-  - no newer epoch checkpoint has appeared yet
+Incomplete:
 
-### Random-K LoRA
+- `Full seed 1`
+  - latest checkpoint: `repro_outputs/lora/full/seed_1/checkpoint-3251`
+  - latest confirmed trainer state:
+    - global step `3251 / 9750`
+    - epoch `1.0 / 3.0`
+  - no `final_adapter` exists yet
+  - this run must be resumed, not treated as complete
 
-Formal `Random-K seed 1` LoRA training is complete.
+## Evaluation Status
 
-- output dir:
-  - `repro_outputs/lora/random_k5000/seed_1`
-- log file:
-  - `repro_outputs/logs/lora_random_k5000_seed1.log`
-- hyperparameters:
-  - `bf16`
-  - `epochs=3`
-  - `lr=5e-5`
-  - `max_length=2048`
-  - `lora_rank=16`
-  - `lora_alpha=8`
-  - effective batch size `16`
-- current state:
-  - completed at `2026-04-28 18:14:45 CST`
-  - final adapter saved successfully
+### Base
 
-### CNN Top-K LoRA
+Completed under `repro_outputs/eval/base`.
 
-Formal `CNN Top-K seed 1` LoRA training is complete.
+- `gsm8k = 0.3593631539044731`
+- `math500 = 0.122`
+- `arc_challenge = 0.2431740614334471`
+- `mmlu_subset = 0.2543859649122807`
 
-- output dir:
-  - `repro_outputs/lora/cnn_top_k5000/seed_1`
-- log file:
-  - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
-- hyperparameters:
-  - `bf16`
-  - `epochs=3`
-  - `lr=5e-5`
-  - `max_length=2048`
-  - `lora_rank=16`
-  - `lora_alpha=8`
-  - effective batch size `16`
-- current state:
-  - completed at `2026-04-28 21:56:11 CST`
-  - final adapter saved successfully
+Files:
 
-### CNN Bottom-K LoRA
+- `repro_outputs/eval/base/run_scores.json`
+- `repro_outputs/eval/base/run_scores.csv`
+- per-benchmark prediction JSONs are present
 
-Formal `CNN Bottom-K seed 1` LoRA training is complete.
+### Random-K Seed 1
 
-- output dir:
-  - `repro_outputs/lora/cnn_bottom_k5000/seed_1`
-- log file:
-  - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
-- hyperparameters:
-  - `bf16`
-  - `epochs=3`
-  - `lr=5e-5`
-  - `max_length=2048`
-  - `lora_rank=16`
-  - `lora_alpha=8`
-  - effective batch size `16`
-- current state:
-  - completed at `2026-04-28 21:53:26 CST`
-  - final adapter saved successfully
+Partially completed under `repro_outputs/eval/random_k5000_seed1`.
 
-## Active Evaluation
+- finished:
+  - `gsm8k = 0.8453373768006065`
+- missing:
+  - `math500`
+  - `arc_challenge`
+  - `mmlu_subset`
 
-### Random-K Eval
+Latest log evidence:
 
-Formal `Random-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
+- `2026-04-28 23:53:11 CST`
+- progress reached `math500 160 / 500`
+- process later stopped before writing additional benchmark outputs
 
-- output dir:
-  - `repro_outputs/eval/random_k5000_seed1`
-- log file:
-  - `repro_outputs/logs/eval_random_k5000_seed1.log`
-- current state:
-  - `gsm8k` finished with score `0.845337`
-  - current benchmark: `math500`
-  - latest confirmed progress: `160 / 500`
-  - note:
-    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
+### CNN Bottom-K Seed 1
 
-### CNN Top-K Eval
+Partially completed under `repro_outputs/eval/cnn_bottom_k5000_seed1`.
 
-Formal `CNN Top-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU1`.
+- finished:
+  - `gsm8k = 0.8544351781652767`
+- missing:
+  - `math500`
+  - `arc_challenge`
+  - `mmlu_subset`
 
-- output dir:
+Latest log evidence:
+
+- `2026-04-28 23:57:57 CST`
+- progress reached `math500 80 / 500`
+- process later stopped before writing additional benchmark outputs
+
+### CNN Top-K Seed 1
+
+Interrupted before any benchmark result was saved.
+
+- output dir exists:
   - `repro_outputs/eval/cnn_top_k5000_seed1`
-- log file:
+- no `run_scores.json` exists
+- latest log evidence:
+  - `2026-04-28 23:56:40 CST`
+  - progress reached `gsm8k 1040 / 1319`
+
+### Full Seed 1
+
+Not started because `Full seed 1` training is not finished.
+
+## Evaluation Script Bug Already Fixed
+
+The original `evaluate_round1.py` had a bug at `mmlu_subset` entry.
+
+- root cause:
+  - `evaluate_mmlu_subset()` did not accept `logger` and `progress_log_every_batches`
+  - caller passed both arguments
+- consequence:
+  - runs launched before the fix could crash on entering `mmlu_subset`
+- remediation already committed:
+  - fixed function signature
+  - added `--benchmarks` so a run can resume benchmark-by-benchmark
+  - existing `run_scores.json` is preserved for unselected benchmarks
+
+This fix was used successfully to recover `Base -> mmlu_subset`.
+
+## Logging Status
+
+Long-running scripts now write timestamped logs.
+
+- selector:
+  - `repro_outputs/logs/selector_round1.log`
+- scoring:
+  - `repro_outputs/logs/score_candidates.log`
+- subset build:
+  - `repro_outputs/logs/build_subsets_round1.log`
+- LoRA:
+  - `repro_outputs/logs/lora_full_seed1.log`
+  - `repro_outputs/logs/lora_random_k5000_seed1.log`
+  - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
+  - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
+- eval:
+  - `repro_outputs/logs/base_eval.log`
+  - `repro_outputs/logs/base_eval_resume_mmlu.log`
+  - `repro_outputs/logs/eval_random_k5000_seed1.log`
   - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
-- current state:
-  - currently running `gsm8k`
-  - latest confirmed progress: `960 / 1319`
-  - note:
-    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
-
-### CNN Bottom-K Eval
-
-Formal `CNN Bottom-K seed 1` evaluation started at `2026-04-28 22:25 CST` on `GPU0`.
-
-- output dir:
-  - `repro_outputs/eval/cnn_bottom_k5000_seed1`
-- log file:
   - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
-- current state:
-  - `gsm8k` finished with score `0.854435`
-  - current benchmark: `math500`
-  - note:
-    - this process was started before the `mmlu_subset` bug fix, so it may need an `mmlu_subset`-only rerun after finishing earlier benchmarks
 
-## Current Bottlenecks
+## Current Machine State
 
-- `Full seed 1` is still the longest remaining training job on the critical path
-- both GPUs are now busy with concurrent evaluation jobs, so throughput per run will be lower than single-job mode
-- `Full seed 1` predates the improved per-step file logging, so W&B remains the best live visibility source for that run
-- current `ps` and log checks confirm:
-  - `Random-K eval` is still alive
-  - `CNN Top-K eval` is still alive
-  - `CNN Bottom-K eval` is still alive
-- the recently disappeared `Base mmlu` recovery process exited normally because it finished
-- any eval process launched before the `2026-04-28 23:28 CST` `evaluate_round1.py` fix will still be using the old in-memory code and may terminate when reaching `mmlu_subset`
+Machine state changed after the idle check.
 
-## Immediate Next Actions
+### Idle Snapshot
 
-1. Let `Random-K / CNN Top-K / CNN Bottom-K` evals continue.
-2. When each adapter eval reaches the old `mmlu_subset` crash point, relaunch that run with `--benchmarks mmlu_subset` using the patched script if needed.
-3. After `Full seed 1` finishes, run `Full` evaluation with the patched script.
-4. Then aggregate:
-   - per-run raw scores
-   - group mean/std
+As of `2026-04-29 09:36 CST`:
+
+- `nvidia-smi` showed both H200 GPUs idle
+- no CPQS training or evaluation process was running
+
+That confirmed the previous long jobs had not completed end-to-end and required explicit relaunch.
+
+### Active Snapshot
+
+As of `2026-04-29 09:44 CST`, the following jobs were relaunched and are active:
+
+- `Full seed 1` resume training
+  - GPU: `GPU0`
+  - PID: `565634`
+  - session: `tmux cpqs_full_seed1_resume`
+  - checkpoint: `checkpoint-3251`
+- `Random-K seed 1` eval resume
+  - GPU: `GPU0`
+  - PID: `565640`
+  - session: `tmux cpqs_eval_random_seed1_resume`
+  - benchmarks: `math500, arc_challenge, mmlu_subset`
+- `CNN Top-K seed 1` eval restart
+  - GPU: `GPU1`
+  - PID: `565643`
+  - session: `tmux cpqs_eval_top_seed1`
+  - benchmarks: `gsm8k, math500, arc_challenge, mmlu_subset`
+- `CNN Bottom-K seed 1` eval resume
+  - GPU: `GPU1`
+  - PID: `565646`
+  - session: `tmux cpqs_eval_bottom_seed1_resume`
+  - benchmarks: `math500, arc_challenge, mmlu_subset`
+
+Current eval batch sizes for all relaunched eval jobs:
+
+- `gsm8k = 8`
+- `math500 = 8`
+- `arc_challenge = 12`
+- `mmlu_subset = 12`
+
+## Remaining Work For The Minimal Closed Loop
+
+1. Resume `Full seed 1` from `checkpoint-3251`.
+2. Finish `CNN Top-K seed 1` evaluation from scratch.
+3. Resume `Random-K seed 1` evaluation for:
+   - `math500`
+   - `arc_challenge`
+   - `mmlu_subset`
+4. Resume `CNN Bottom-K seed 1` evaluation for:
+   - `math500`
+   - `arc_challenge`
+   - `mmlu_subset`
+5. Run `Full seed 1` evaluation after training finishes.
+6. Generate result tables:
+   - per-run raw score table
+   - group mean/std summary table
+
+## Next Expansion After Minimal Closure
+
+Not started yet:
+
+- `Random-K seed 2`
+- `Random-K seed 3`
+- `CNN Top-K seed 2`
+- `CNN Top-K seed 3`
+- `CNN Bottom-K seed 2`
+- `CNN Bottom-K seed 3`
+- eval for all additional seeds
+
+## Latest Code Update
+
+`repro/train_lora.py` now supports checkpoint resume.
+
+- new args:
+  - `--resume_from_checkpoint`
+  - `--auto_resume_latest_checkpoint`
+
+This is required to continue `Full seed 1` without discarding the already finished first epoch.
