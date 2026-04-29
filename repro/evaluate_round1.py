@@ -16,6 +16,7 @@ from repro.common import (
     extract_math_candidate,
     extract_final_choice,
     extract_gsm8k_gold,
+    extract_option_label,
     format_mc_options,
     math_answers_equal,
     normalize_number,
@@ -24,7 +25,15 @@ from repro.common import (
     set_seed,
 )
 
-BENCHMARK_CHOICES = ["gsm8k", "math500", "arc_challenge", "mmlu_subset"]
+BENCHMARK_CHOICES = [
+    "gsm8k",
+    "math500",
+    "arc_challenge",
+    "mmlu_subset",
+    "mmlu_full",
+    "hellaswag",
+    "truthfulqa_mc1",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,6 +58,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size_math500", type=int, default=4)
     parser.add_argument("--batch_size_arc", type=int, default=8)
     parser.add_argument("--batch_size_mmlu", type=int, default=8)
+    parser.add_argument("--batch_size_hellaswag", type=int, default=8)
+    parser.add_argument("--batch_size_truthfulqa", type=int, default=8)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--sample_dump_dir", default="")
     parser.add_argument("--sample_dump_count", type=int, default=0)
@@ -156,6 +167,27 @@ def build_mmlu_prompt(subject: str, question: str, options: Dict[str, Any]) -> s
         "Answer the multiple-choice question.\n"
         "Output only one uppercase letter on the final line: A, B, C, or D.\n\n"
         f"Subject: {subject}\nQuestion: {question}\n{format_mc_options(options)}"
+    )
+
+
+def label_choices(choices: Sequence[str]) -> Dict[str, str]:
+    labels = [chr(ord("A") + index) for index in range(len(choices))]
+    return dict(zip(labels, choices))
+
+
+def build_hellaswag_prompt(context: str, endings: Sequence[str]) -> str:
+    return (
+        "Choose the most plausible continuation of the given context.\n"
+        "Output only one uppercase letter on the final line.\n\n"
+        f"Context: {context}\n{format_mc_options(label_choices(endings))}"
+    )
+
+
+def build_truthfulqa_prompt(question: str, choices: Sequence[str]) -> str:
+    return (
+        "Choose the most truthful answer to the question.\n"
+        "Output only one uppercase letter on the final line.\n\n"
+        f"Question: {question}\n{format_mc_options(label_choices(choices))}"
     )
 
 
@@ -311,6 +343,126 @@ def evaluate_arc(
     return {"dataset": "arc_challenge", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
+def evaluate_hellaswag(
+    tokenizer,
+    model,
+    dataset_root: str,
+    batch_size: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+) -> Dict[str, Any]:
+    dataset = load_from_disk(str(Path(dataset_root) / "hellaswag"))["validation"]
+    rows = [dataset[index] for index in range(len(dataset))]
+    if limit > 0:
+        rows = rows[:limit]
+
+    scored_rows: List[Dict[str, Any]] = []
+    correct = 0
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
+        contexts = [row["ctx"].strip() for row in batch]
+        prompt_texts = [build_hellaswag_prompt(context, row["endings"]) for context, row in zip(contexts, batch)]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
+            valid_labels = [chr(ord("A") + index) for index in range(len(row["endings"]))]
+            prediction = extract_option_label(output, valid_labels)
+            gold_answer = valid_labels[int(row["label"])]
+            is_correct = prediction == gold_answer
+            correct += int(is_correct)
+            scored_rows.append(
+                {
+                    "id": row["ind"],
+                    "prompt": prompt_text,
+                    "gold_answer": gold_answer,
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
+                    "raw_output": output,
+                    "correct": is_correct,
+                }
+            )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info(
+                "Benchmark progress | hellaswag | processed=%s/%s batches=%s/%s throughput=%.2f samples/s",
+                processed,
+                len(rows),
+                batch_index,
+                total_batches,
+                throughput,
+            )
+    return {"dataset": "hellaswag", "score": correct / len(scored_rows), "rows": scored_rows}
+
+
+def extract_truthfulqa_gold_label(targets: Dict[str, Any]) -> str:
+    for index, label in enumerate(targets["labels"]):
+        if int(label) == 1:
+            return chr(ord("A") + index)
+    raise ValueError("TruthfulQA mc1_targets does not contain a positive label")
+
+
+def evaluate_truthfulqa_mc1(
+    tokenizer,
+    model,
+    dataset_root: str,
+    batch_size: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+) -> Dict[str, Any]:
+    dataset = load_from_disk(str(Path(dataset_root) / "truthfulqa_mc"))["validation"]
+    rows = [dataset[index] for index in range(len(dataset))]
+    if limit > 0:
+        rows = rows[:limit]
+
+    scored_rows: List[Dict[str, Any]] = []
+    correct = 0
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
+        prompt_texts = [build_truthfulqa_prompt(row["question"], row["mc1_targets"]["choices"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
+            valid_labels = [chr(ord("A") + index) for index in range(len(row["mc1_targets"]["choices"]))]
+            prediction = extract_option_label(output, valid_labels)
+            gold_answer = extract_truthfulqa_gold_label(row["mc1_targets"])
+            is_correct = prediction == gold_answer
+            correct += int(is_correct)
+            scored_rows.append(
+                {
+                    "question": row["question"],
+                    "prompt": prompt_text,
+                    "gold_answer": gold_answer,
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
+                    "raw_output": output,
+                    "correct": is_correct,
+                }
+            )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info(
+                "Benchmark progress | truthfulqa_mc1 | processed=%s/%s batches=%s/%s throughput=%.2f samples/s",
+                processed,
+                len(rows),
+                batch_index,
+                total_batches,
+                throughput,
+            )
+    return {"dataset": "truthfulqa_mc1", "score": correct / len(scored_rows), "rows": scored_rows}
+
+
 def build_mmlu_subset(mmlu_path: str, examples_per_subject: int, seed: int) -> List[Dict[str, Any]]:
     with open(mmlu_path, "r", encoding="utf-8") as handle:
         rows = json.load(handle)
@@ -379,6 +531,64 @@ def evaluate_mmlu_subset(
     }
 
 
+def evaluate_mmlu_full(
+    tokenizer,
+    model,
+    mmlu_path: str,
+    batch_size: int,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+) -> Dict[str, Any]:
+    with open(mmlu_path, "r", encoding="utf-8") as handle:
+        rows = json.load(handle)
+    if limit > 0:
+        rows = rows[:limit]
+
+    scored_rows: List[Dict[str, Any]] = []
+    correct = 0
+    total_batches = (len(rows) + batch_size - 1) // batch_size
+    start_time = time.time()
+    for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
+        prompt_texts = [build_mmlu_prompt(row["subject"], row["question"], row["options"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
+            prediction = extract_final_choice(output)
+            is_correct = prediction == row["answer"]
+            correct += int(is_correct)
+            scored_rows.append(
+                {
+                    "subject": row["subject"],
+                    "prompt": prompt_text,
+                    "gold_answer": row["answer"],
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
+                    "raw_output": output,
+                    "correct": is_correct,
+                }
+            )
+        if batch_index % progress_log_every_batches == 0 or batch_index == total_batches:
+            elapsed = time.time() - start_time
+            processed = min(batch_index * batch_size, len(rows))
+            throughput = processed / elapsed if elapsed > 0 else 0.0
+            logger.info(
+                "Benchmark progress | mmlu_full | processed=%s/%s batches=%s/%s throughput=%.2f samples/s",
+                processed,
+                len(rows),
+                batch_index,
+                total_batches,
+                throughput,
+            )
+    return {
+        "dataset": "mmlu_full",
+        "score": correct / len(scored_rows),
+        "rows": scored_rows,
+    }
+
+
 def main() -> None:
     cfg = parse_args()
     set_seed(cfg.seed)
@@ -390,7 +600,7 @@ def main() -> None:
     enable_thinking = parse_bool_flag(cfg.enable_thinking)
     do_sample = parse_bool_flag(cfg.do_sample)
     logger.info(
-        "Config | group=%s seed=%s adapter=%s benchmarks=%s thinking=%s do_sample=%s temperature=%s top_p=%s top_k=%s max_new_tokens=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
+        "Config | group=%s seed=%s adapter=%s benchmarks=%s thinking=%s do_sample=%s temperature=%s top_p=%s top_k=%s max_new_tokens=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s hellaswag:%s truthfulqa:%s)",
         cfg.group_name,
         cfg.seed,
         cfg.adapter_path or "<base>",
@@ -405,6 +615,8 @@ def main() -> None:
         cfg.batch_size_math500,
         cfg.batch_size_arc,
         cfg.batch_size_mmlu,
+        cfg.batch_size_hellaswag,
+        cfg.batch_size_truthfulqa,
     )
 
     logger.info("Loading model and tokenizer")
@@ -424,6 +636,8 @@ def main() -> None:
         ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_gsm8k, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
         ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_math500, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
         ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_arc, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("hellaswag", lambda: evaluate_hellaswag(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_hellaswag, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("truthfulqa_mc1", lambda: evaluate_truthfulqa_mc1(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_truthfulqa, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
         (
             "mmlu_subset",
             lambda: evaluate_mmlu_subset(
@@ -432,6 +646,20 @@ def main() -> None:
                 cfg.mmlu_path,
                 cfg.mmlu_examples_per_subject,
                 cfg.mmlu_subset_seed,
+                cfg.batch_size_mmlu,
+                cfg.limit,
+                logger,
+                cfg.progress_log_every_batches,
+                generation_kwargs,
+                enable_thinking,
+            ),
+        ),
+        (
+            "mmlu_full",
+            lambda: evaluate_mmlu_full(
+                tokenizer,
+                model,
+                cfg.mmlu_path,
                 cfg.batch_size_mmlu,
                 cfg.limit,
                 logger,

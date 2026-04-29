@@ -1,6 +1,6 @@
 # CPQS 第一轮复现实验说明
 
-本目录用于维护当前这轮 CPQS 复现实验的独立流程，目标是先跑通一个最小闭环，并把每一步的日志、产物、结果表和排程记录清楚。
+本目录用于维护当前这轮 CPQS 复现实验的独立流程，目标是先把链路跑稳、把错误留痕清楚，再逐步靠近论文口径。
 
 当前第一轮固定比较组为：
 
@@ -10,12 +10,18 @@
 - `CNN Top-K (K=5000)`
 - `CNN Bottom-K (K=5000)`
 
-当前第一轮固定评测集为：
+当前文档中的评测分成两类：
 
-- `GSM8K`
-- `MATH-500`
-- `ARC-Challenge`
-- `MMLU subset`
+- 历史最小闭环评测：
+  - `GSM8K`
+  - `MATH-500`
+  - `ARC-Challenge`
+  - `MMLU subset`
+- 论文 `Alpaca-GPT4` 自动评测主线：
+  - `MMLU`
+  - `ARC-Challenge`
+  - `HellaSwag`
+  - `TruthfulQA`
 
 评分方式固定为：
 
@@ -34,14 +40,17 @@
 - 仅保留 assistant 响应区间的隐藏状态
 - 将响应隐藏状态送入 CNN 选择器
 
-### 2. 先跑最小闭环
+### 2. 先把链路跑稳，再对齐论文协议
 
-为了尽快拿到可以比较的结果，当前这一轮先不扩展到论文中的全部评测协议，而是优先完成：
+前面为了尽快发现问题，先跑过一轮最小闭环；现在已经确认：
 
-- `Base vs Full`
-- `Random-K vs CNN Top-K`
-- `Random-K vs CNN Bottom-K`
-- `CNN Top-K vs Full`
+- 旧 `Base` 评测结果有误，已修复
+- `Alpaca-GPT4` 不应再以 `GSM8K / MATH-500` 作为主评测
+
+因此当前更优先的是：
+
+- 用新脚本统一重跑 `Base / Full / Random-K / CNN Top-K / CNN Bottom-K`
+- 自动评测先对齐到 `MMLU / ARC / HellaSwag / TruthfulQA`
 
 ### 3. 全流程写日志
 
@@ -62,7 +71,9 @@
 - `train_lora.py`
   - 运行 LoRA SFT
 - `evaluate_round1.py`
-  - 对四个 benchmark 自动评测
+  - 当前自动评测主脚本，已支持 `MMLU / ARC / HellaSwag / TruthfulQA`
+- `prepare_alpaca_benchmarks.py`
+  - 准备 `HellaSwag / TruthfulQA` 本地 benchmark 数据
 - `aggregate_results.py`
   - 聚合生成原始分数表与均值方差表
 - `configs/round1_experiment.json`
@@ -95,6 +106,14 @@
 文档版结果汇总见：
 
 - [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
+
+评测协议说明见：
+
+- [ALPACA_EVAL_PROTOCOL.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/ALPACA_EVAL_PROTOCOL.md)
+
+错误复盘与注意事项见：
+
+- [ATTENTION_FOR_FUTURE_RUNS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/ATTENTION_FOR_FUTURE_RUNS.md)
 
 ## 常用命令顺序
 
@@ -166,7 +185,14 @@ python -m repro.evaluate_round1 \
   --group_name random_k5000 \
   --seed 1 \
   --benchmarks_root /home/qjh/llm_learning/CPQS_lab/data/benchmarks \
-  --mmlu_path "/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/eval/Open LLM Leaderboard/MMLU/mmlu_data/mmlu_test.json"
+  --mmlu_path "/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/eval/Open LLM Leaderboard/MMLU/mmlu_data/mmlu_test.json" \
+  --benchmarks mmlu_full arc_challenge hellaswag truthfulqa_mc1 \
+  --enable_thinking false \
+  --do_sample true \
+  --temperature 0.7 \
+  --top_p 0.8 \
+  --top_k 20 \
+  --sample_dump_count 30
 ```
 
 ### 6. 聚合结果

@@ -442,18 +442,25 @@ def strip_thinking_content(text: str) -> str:
     return cleaned.strip()
 
 
-def extract_final_choice(text: str) -> str:
-    patterns = [
-        r"Final answer\s*[:：]\s*([A-D])\b",
-        r"Answer\s*[:：]\s*([A-D])\b",
-        r"\b([A-D])\b",
-    ]
+def extract_option_label(text: str, valid_labels: Sequence[str]) -> str:
+    normalized_labels = [label.upper() for label in valid_labels]
     cleaned = strip_thinking_content(text).upper()
+    label_pattern = "|".join(re.escape(label) for label in normalized_labels)
+    patterns = [
+        rf"Final answer\s*[:：]\s*({label_pattern})\b",
+        rf"Answer\s*[:：]\s*({label_pattern})\b",
+        rf"<answer>\s*({label_pattern})\s*</answer>",
+        rf"\b({label_pattern})\b",
+    ]
     for pattern in patterns:
         match = re.search(pattern, cleaned)
         if match:
             return match.group(1)
     return ""
+
+
+def extract_final_choice(text: str) -> str:
+    return extract_option_label(text, ["A", "B", "C", "D"])
 
 
 def extract_gsm8k_gold(answer: str) -> str:
