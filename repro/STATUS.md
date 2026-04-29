@@ -1,81 +1,79 @@
-# CPQS Reproduction Status
+# CPQS 复现状态
 
-Last updated: 2026-04-29 11:08 CST
+最后更新：2026-04-29 15:48 CST
 
-## Repository And Environment
+## 一、环境与仓库
 
-- Local repo: `/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning`
-- Fork remote: `origin -> https://github.com/Victory0431/CPQS-Tuning`
-- Upstream remote: `upstream -> https://github.com/renllll/CPQS-Tuning`
-- Conda env: `cpqs-tuning`
-- Base model: `/home/qjh/llm_learning/base_model/qwen3_8B`
-- W&B project: `https://wandb.ai/jiahongqin1-ucas-hias/CPQS_research`
+- 本地仓库：
+  - `/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning`
+- 用户 fork：
+  - `origin -> https://github.com/Victory0431/CPQS-Tuning`
+- 上游仓库：
+  - `upstream -> https://github.com/renllll/CPQS-Tuning`
+- conda 环境：
+  - `cpqs-tuning`
+- 基础模型：
+  - `/home/qjh/llm_learning/base_model/qwen3_8B`
+- W&B 项目：
+  - `https://wandb.ai/jiahongqin1-ucas-hias/CPQS_research`
 
-## Scope Of This Round
+## 二、当前实验范围
 
-This round is the user-approved minimal closed loop, not the full paper evaluation package.
+本轮是用户确认过的“最小闭环 + 第二波 seed 扩展并行推进”，不是论文全部评测协议的完整复现。
 
-- candidate pool: `alpaca_gpt4_data.json`
-- groups:
-  - `Base`
-  - `Full`
-  - `Random-K (K=5000)`
-  - `CNN Top-K (K=5000)`
-  - `CNN Bottom-K (K=5000)`
-- benchmarks:
-  - `GSM8K`
-  - `MATH-500`
-  - `ARC-Challenge`
-  - `MMLU subset`
-- scoring:
-  - script-based only
-  - no LLM judge
-  - no AlpacaEval
+固定比较组：
 
-## Paper-Alignment Notes
+- `Base`
+- `Full`
+- `Random-K (K=5000)`
+- `CNN Top-K (K=5000)`
+- `CNN Bottom-K (K=5000)`
 
-- LoRA SFT hyperparameters are fixed across groups:
-  - same base model
-  - `3` epochs
-  - learning rate `5e-5`
-  - max length `2048`
-  - LoRA rank `16`
-  - same prompt format
-  - only the training subset changes
-- Selector hidden-state extraction follows the original repo logic:
-  - build `user-only` and `user+assistant` prompts
-  - compute the assistant start boundary from the `user-only` prompt length
-  - keep only assistant response hidden states
-  - feed those response hidden states into the CNN selector
-- Evaluation is intentionally narrower than the paper's Alpaca evaluation protocol.
-  - current results are valid for the internal `Base / Full / Random / Top / Bottom` comparison
-  - current results are not yet a strict reproduction of the paper's Alpaca benchmark section
+固定评测集：
 
-## Completed Pipeline Stages
+- `GSM8K`
+- `MATH-500`
+- `ARC-Challenge`
+- `MMLU subset`
 
-### Selector Training
+评分原则：
 
-Completed under `repro_outputs/selector_round1`.
+- 全部使用脚本自动评分
+- 不使用 LLM judge
 
-- best checkpoint:
-  - `repro_outputs/selector_round1/checkpoints/best_selector.pth`
-- best metrics:
-  - accuracy: `0.8254`
-  - F1: `0.7734`
-  - AUC: `0.9291`
-  - validation loss: `0.3352`
+## 三、已经完成的阶段
 
-### Candidate Scoring
+### 1. 选择器训练
 
-Completed under `repro_outputs/scored_alpaca`.
+已完成，目录：
 
-- main outputs:
-  - `repro_outputs/scored_alpaca/scored_candidates.json`
-  - `repro_outputs/scored_alpaca/scored_candidates.csv`
+- `repro_outputs/selector_round1`
 
-### Subset Building
+关键指标：
 
-Completed under `repro_outputs/subsets_round1`.
+- Accuracy：`0.8254`
+- F1：`0.7734`
+- AUC：`0.9291`
+- Val loss：`0.3352`
+
+### 2. 候选数据打分
+
+已完成，目录：
+
+- `repro_outputs/scored_alpaca`
+
+主要文件：
+
+- `scored_candidates.json`
+- `scored_candidates.csv`
+
+### 3. 第一轮子集构造
+
+已完成，目录：
+
+- `repro_outputs/subsets_round1`
+
+已生成：
 
 - `full.json`
 - `random_5000_seed_1.json`
@@ -83,210 +81,111 @@ Completed under `repro_outputs/subsets_round1`.
 - `random_5000_seed_3.json`
 - `cnn_top_5000.json`
 - `cnn_bottom_5000.json`
-- `subset_manifest.csv`
 
-### LoRA Training
-
-Completed:
+### 4. 已完成的 LoRA 训练
 
 - `Random-K seed 1`
-  - adapter: `repro_outputs/lora/random_k5000/seed_1/final_adapter`
-- `CNN Top-K seed 1`
-  - adapter: `repro_outputs/lora/cnn_top_k5000/seed_1/final_adapter`
-- `CNN Bottom-K seed 1`
-  - adapter: `repro_outputs/lora/cnn_bottom_k5000/seed_1/final_adapter`
-
-In progress:
-
-- `Full seed 1`
-  - resumed from: `repro_outputs/lora/full/seed_1/checkpoint-3251`
-  - latest confirmed log snapshot:
-    - global step `3990 / 9753`
-    - epoch `1.2277 / 3.0`
-  - no `final_adapter` exists yet
 - `Random-K seed 2`
-  - started at `2026-04-29 11:00 CST`
-  - output dir:
-    - `repro_outputs/lora/random_k5000/seed_2`
-  - latest confirmed log snapshot:
-    - dataset size `5000`
-    - estimated total steps `939`
-    - trainer loop started normally
+- `CNN Top-K seed 1`
 - `CNN Top-K seed 2`
-  - started at `2026-04-29 11:06 CST`
-  - output dir:
-    - `repro_outputs/lora/cnn_top_k5000/seed_2`
-  - latest confirmed log snapshot:
-    - dataset size `5000`
-    - estimated total steps `939`
-    - trainer loop started normally
+- `CNN Bottom-K seed 1`
 
-## Evaluation Status
+对应 `final_adapter` 已存在。
 
-### Base
+### 5. 已完成的评测
 
-Completed under `repro_outputs/eval/base`.
+已完成评测的组：
 
-- `gsm8k = 0.3593631539044731`
-- `math500 = 0.122`
-- `arc_challenge = 0.2431740614334471`
-- `mmlu_subset = 0.2543859649122807`
+- `Base`
+- `Random-K seed 1`
+- `CNN Top-K seed 1`
+- `CNN Bottom-K seed 1`
 
-Files:
+完整表格见：
 
-- `repro_outputs/eval/base/run_scores.json`
-- `repro_outputs/eval/base/run_scores.csv`
-- per-benchmark prediction JSONs are present
+- [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
 
-### Random-K Seed 1
+CSV 文件见：
 
-Completed under `repro_outputs/eval/random_k5000_seed1`.
+- `repro_outputs/tables/per_run_scores.csv`
+- `repro_outputs/tables/group_mean_std.csv`
 
-- `gsm8k = 0.8453373768006065`
-- `math500 = 0.47`
-- `arc_challenge = 0.3174061433447099`
-- `mmlu_subset = 0.2894736842105263`
+## 四、当前进行中的任务
 
-### CNN Bottom-K Seed 1
+截至 `2026-04-29 15:42 CST`，当前真实在跑的 4 个任务如下：
 
-Completed under `repro_outputs/eval/cnn_bottom_k5000_seed1`.
+### GPU0
 
-- `gsm8k = 0.8544351781652767`
-- `math500 = 0.434`
-- `arc_challenge = 0.2858361774744027`
-- `mmlu_subset = 0.2543859649122807`
+- `Full seed 1` 继续训练
+  - PID：`565634`
+  - tmux：`cpqs_full_seed1_resume`
+  - 已从 `checkpoint-3251` 恢复
+  - 已出现更新后的更高 checkpoint：
+    - `checkpoint-6500`
+- `CNN Top-K seed 2` 自动评测
+  - PID：`1190267`
+  - tmux：`cpqs_eval_top_seed2`
+  - 日志：
+    - `repro_outputs/logs/eval_cnn_top_k5000_seed2.log`
 
-### CNN Top-K Seed 1
+### GPU1
 
-In progress under `repro_outputs/eval/cnn_top_k5000_seed1`.
+- `Random-K seed 2` 自动评测
+  - PID：`1190275`
+  - tmux：`cpqs_eval_random_seed2`
+  - 日志：
+    - `repro_outputs/logs/eval_random_k5000_seed2.log`
+- `CNN Bottom-K seed 2` LoRA 训练
+  - PID：`1190279`
+  - tmux：`cpqs_lora_bottom_seed2`
+  - 日志：
+    - `repro_outputs/logs/lora_cnn_bottom_k5000_seed2.log`
 
-- completed so far:
-  - `gsm8k = 0.7892342683851402`
-- current benchmark:
-  - `math500`
-- latest confirmed log evidence:
-  - `2026-04-29 10:55:59 CST`
-  - `gsm8k` finished and `math500` started
+说明：
 
-### Full Seed 1
+- 之前的 `Random-K seed 2` 和 `CNN Top-K seed 2` 训练本体已经完成，但 Python 进程未干净退出，已被回收
+- 现在两张卡都已经重新补齐到“每卡至少 2 个真实任务”
 
-Not started yet because `Full seed 1` training is still in progress.
+## 五、当前未完成项
 
-## Evaluation Script Bug Already Fixed
+最小闭环还差：
 
-The original `evaluate_round1.py` had a bug at `mmlu_subset` entry.
+- `Full seed 1` 训练完成
+- `Full seed 1` 评测
 
-- root cause:
-  - `evaluate_mmlu_subset()` did not accept `logger` and `progress_log_every_batches`
-  - caller passed both arguments
-- consequence:
-  - runs launched before the fix could crash on entering `mmlu_subset`
-- remediation already committed:
-  - fixed function signature
-  - added `--benchmarks` so a run can resume benchmark-by-benchmark
-  - existing `run_scores.json` is preserved for unselected benchmarks
+第二波 seed 扩展还差：
 
-This fix was used successfully to recover `Base -> mmlu_subset`.
+- `Random-K seed 2` 评测完成
+- `CNN Top-K seed 2` 评测完成
+- `CNN Bottom-K seed 2` 训练完成并评测
+- `Random-K seed 3` 训练与评测
+- `CNN Top-K seed 3` 训练与评测
+- `CNN Bottom-K seed 3` 训练与评测
 
-## Logging Status
+## 六、结果解读现状
 
-Long-running scripts now write timestamped logs.
+当前已经拿到的完整 seed1 结果，可以先支持以下比较：
 
-- selector:
-  - `repro_outputs/logs/selector_round1.log`
-- scoring:
-  - `repro_outputs/logs/score_candidates.log`
-- subset build:
-  - `repro_outputs/logs/build_subsets_round1.log`
-- LoRA:
-  - `repro_outputs/logs/lora_full_seed1.log`
-  - `repro_outputs/logs/lora_random_k5000_seed1.log`
-  - `repro_outputs/logs/lora_cnn_top_k5000_seed1.log`
-  - `repro_outputs/logs/lora_cnn_bottom_k5000_seed1.log`
-- eval:
-  - `repro_outputs/logs/base_eval.log`
-  - `repro_outputs/logs/base_eval_resume_mmlu.log`
-  - `repro_outputs/logs/eval_random_k5000_seed1.log`
-  - `repro_outputs/logs/eval_cnn_top_k5000_seed1.log`
-  - `repro_outputs/logs/eval_cnn_bottom_k5000_seed1.log`
+- `CNN Top-K seed1 vs Random-K seed1`
+- `CNN Bottom-K seed1 vs Random-K seed1`
+- `Base vs Random-K seed1`
+- `Base vs CNN Top-K seed1`
+- `Base vs CNN Bottom-K seed1`
 
-## Current Machine State
+当前还不能完成的重点比较：
 
-Machine state changed after the idle check.
+- `Full vs Base`
+- `CNN Top-K vs Full`
 
-### Idle Snapshot
+原因是 `Full seed 1` 训练和评测还没结束。
 
-As of `2026-04-29 09:36 CST`:
+## 七、日志与产物约定
 
-- `nvidia-smi` showed both H200 GPUs idle
-- no CPQS training or evaluation process was running
+当前长任务默认都具备带时间戳日志，主要目录：
 
-That confirmed the previous long jobs had not completed end-to-end and required explicit relaunch.
+- `repro_outputs/logs`
+- `repro_outputs/lora`
+- `repro_outputs/eval`
+- `repro_outputs/tables`
 
-### Active Snapshot
-
-As of `2026-04-29 11:06 CST`, the active jobs are:
-
-- `Full seed 1` resume training
-  - GPU: `GPU0`
-  - PID: `565634`
-  - session: `tmux cpqs_full_seed1_resume`
-- `CNN Top-K seed 2` training
-  - GPU: `GPU0`
-  - PID: `678870`
-  - session: `tmux cpqs_lora_top_seed2`
-- `CNN Top-K seed 1` eval
-  - GPU: `GPU1`
-  - PID: `565643`
-  - session: `tmux cpqs_eval_top_seed1`
-- `Random-K seed 2` training
-  - GPU: `GPU1`
-  - session: `tmux cpqs_lora_random_seed2`
-  - PID: `663510`
-  - latest confirmed status:
-    - trainer loop started at `2026-04-29 11:00:52 CST`
-
-Current eval batch sizes:
-
-- `gsm8k = 8`
-- `math500 = 8`
-- `arc_challenge = 12`
-- `mmlu_subset = 12`
-
-## Remaining Work For The Minimal Closed Loop
-
-1. Finish `CNN Top-K seed 1` evaluation.
-2. Finish `Full seed 1` training.
-3. Run `Full seed 1` evaluation after training finishes.
-4. Generate result tables:
-   - per-run raw score table
-   - group mean/std summary table
-5. Continue second-wave seed runs:
-   - `Random-K seed 2` now running
-   - `CNN Top-K seed 2` now running
-   - `Random-K seed 3` pending
-   - `CNN Top-K seed 3` pending
-   - `CNN Bottom-K seed 2` pending
-   - `CNN Bottom-K seed 3` pending
-
-## Next Expansion After Minimal Closure
-
-Current second-wave state:
-
-- `Random-K seed 2` running
-- `CNN Top-K seed 2` running
-- `Random-K seed 3`
-- `CNN Top-K seed 3`
-- `CNN Bottom-K seed 2`
-- `CNN Bottom-K seed 3`
-- eval for all additional seeds
-
-## Latest Code Update
-
-`repro/train_lora.py` now supports checkpoint resume.
-
-- new args:
-  - `--resume_from_checkpoint`
-  - `--auto_resume_latest_checkpoint`
-
-This is required to continue `Full seed 1` without discarding the already finished first epoch.
+从现在开始，`repro/` 下文档统一使用中文维护。

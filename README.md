@@ -1,113 +1,120 @@
 # CPQS-Tuning
-This is the repo for CPQS-Tuning: A Model Self-Perception-Based Data Filtering Algorithm for Efficient Instruction Fine-Tuning, which introduces a novel metric—the Contrastive Perception Quality Score (CPQS)—to identify and select the highest-quality subset of instruction-tuning data directly from a  LLM’s hidden states.
 
-The repo contains:
+这是论文 **CPQS-Tuning: A Model Self-Perception-Based Data Filtering Algorithm for Efficient Instruction Fine-Tuning** 的代码仓库。该方法提出了新的数据质量指标 **Contrastive Perception Quality Score (CPQS)**，直接利用大语言模型的隐藏状态来评估指令微调数据质量，并据此筛选高质量子集。
 
-- **CPQS Scoring & Filtering Code**
+仓库主要包含两部分内容：
 
-Scripts to extract hidden representations, compute CPQS for each example, and filter out the top k % of data.
+- **CPQS 打分与筛选代码**
+  - 用于提取隐藏表示、计算每条样本的 CPQS 分数，并按分数筛选数据。
+- **训练与评测脚本**
+  - 用于把 CPQS-Tuning 接入 LoRA / PEFT 微调流程，并完成效果验证。
 
-- **Training & Evaluation Scripts**
+## 项目概述
 
-Example pipelines demonstrating how to integrate CPQS-Tuning into your LoRA/PEFT workflows.
+指令微调是释放大语言模型能力的重要步骤，但训练数据中常常存在低质量样本和冗余样本。传统数据筛选方法通常依赖外部评价模型或人工设计指标，不仅带来额外计算开销，也可能与模型自身的学习动态不一致。
 
+**CPQS-Tuning** 的核心思想是：让模型利用自己的隐藏状态来“感知”数据质量。具体来说，**CPQS** 通过对比模型对不同样本的内部表征，给出一个内生的数据质量分数。论文结果显示，在 Alpaca\_GPT4 和 DeepSeek-R1 数据上，仅选择不足 10% 的高质量子集，就可以达到甚至超过使用全量数据训练的效果，并优于已有主流数据筛选方法。
 
+项目提供了复现实验所需的主要代码、数据筛选脚本与部分中间结果，便于继续开展高效、自感知指令微调研究。
 
-
-## **Overview**
-
-**CPQS-tuning**
-
-Instruction fine-tuning is essential to unlocking the full potential of large language models (LLMs), yet it often suffers from low-quality and redundant data. Traditional filtering methods rely on external evaluation models or hand-crafted metrics, which not only add computation overhead but may also misalign with the model’s own learning dynamics. In **CPQS-Tuning**, we introduce a **self-perception-based filtering** approach: the **Contrastive Perception Quality Score (CPQS)** leverages the hidden states of an LLM to intrinsically assess instruction-data quality. By selecting under 10 % of the original Alpaca\_GPT4 and DeepSeek-R1 datasets based on CPQS, our filtered subset not only matches but **outperforms** models trained on the full datasets and surpasses current state-of-the-art data-selection techniques.
-
-Extensive experiments in both general and downstream domains—covering benchmarks such as GSM8K, HumanEval, and HumanEval-Plus—demonstrate that CPQS-Tuning delivers an **average performance gain of over 3.6 %** against leading filtering algorithms. This project provides all necessary code, data-selection scripts, and pretrained checkpoints to reproduce our results and facilitate further research into efficient, self-aware instruction fine-tuning.
-
-The figure below illustrates the flowchart of our method.
+下图展示了方法流程：
 
 <img width="1204" alt="Method_diagram (1)" src="https://github.com/user-attachments/assets/7ce8b4b8-9d1e-4758-8188-69de305834da" />
 
-## **Data Preparation**
+## 数据准备
 
-The datasets for training the CNN model and for validating our algorithm’s performance are available at the following locations. The **training set** is located in the `raw_data` folder, and the **validation set** is in the `train_data` folder:
+训练 CNN 选择器和验证算法效果所需的数据可从以下位置获取：
 
-* **Baidu Netdisk**
-  Link: [https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62](https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62)
-  Extract code: `9c62`
+- 训练数据位于 `raw_data` 目录
+- 验证数据位于 `train_data` 目录
 
-* **Hugging Face**
-  [https://huggingface.co/datasets/renlll/CPQS\_data/tree/main/data](https://huggingface.co/datasets/renlll/CPQS_data/tree/main/data)
+下载地址：
 
+- **百度网盘**
+  - 链接：<https://pan.baidu.com/s/1J9WhQorhaLhBb84LckQQtA?pwd=9c62>
+  - 提取码：`9c62`
+- **Hugging Face**
+  - <https://huggingface.co/datasets/renlll/CPQS_data/tree/main/data>
 
+## 环境配置
 
-## **Environment Setup**
-
-Since our algorithm is straightforward, you can set up the environment by running the following commands:
+可以按以下步骤准备运行环境：
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/renllll/CPQS-Tuning.git
 
-# Enter the project directory
+# 进入项目目录
 cd CPQS-Tuning
 
-# Create a new conda environment with Python 3.10
+# 创建 conda 环境
 conda create -n cpqs-tuning python=3.10
 
-# Activate the environment
+# 激活环境
 conda activate cpqs-tuning
 
-# Install required packages
+# 安装依赖
 pip install -r requirements.txt
 ```
 
+## 运行说明
 
-## **Run Code**
+### 1. 训练 CNN 选择器
 
-1. **Train the CNN Model**
+```bash
+python train_cnn.py
+```
 
-   ```bash
-   python train_cnn.py
-   ```
+需要重点检查的 `parse_args` 参数：
 
-   Modify the following `parse_args` parameters:
+- `--model_path`：基础大模型权重路径
+- `--pos_train_path`：正样本 JSON 路径
+- `--neg_dataset1_path`：第一份负样本 JSON 路径
+- `--neg_dataset2_path`：第二份负样本 JSON 路径
+- `--local_data_path`：本地缓存或预合并数据路径
+- `--backbone`：骨干模型类型，支持 `qwen` 或 `llama`
 
-   * `--model_path`：Path to the LLM checkpoint
-   * `--pos_train_path`：Path to the positive-sample JSON file
-   * `--neg_dataset1_path`：Path to the first negative-sample JSON file
-   * `--neg_dataset2_path`：Path to the second negative-sample JSON file
-   * `--local_data_path`：Path to the cached, merged dataset (for loading pre-saved training data)
-   * `--backbone`：Backbone type (`qwen` or `llama`)—choose the prompt template for the desired model
+### 2. 预测数据质量
 
-2. **Evaluate Data Quality**
+```bash
+python predict.py
+```
 
-   ```bash
-   python predict.py
-   ```
+需要重点检查的 `parse_args` 参数：
 
-   Modify the following `parse_args` parameters:
+- `--model_path`：基础大模型权重路径
+- `--cnn_checkpoint`：训练好的 TextCNN `.pth` 权重路径
+- `--predict_data`：待打分 JSON 数据路径
+- `--output_path`：预测结果保存路径
+- `--failed_path`：失败样本保存路径
+- `--backbone`：骨干模型类型，支持 `qwen` 或 `llama`
 
-   * `--model_path`：Path to the LLM checkpoint
-   * `--cnn_checkpoint`：Path to the trained TextCNN `.pth` file
-   * `--predict_data`：Path to the JSON file for inference
-   * `--output_path`：Path to save prediction results (JSON)
-   * `--failed_path`：Path to save failed predictions (JSON)
-   * `--backbone`：Backbone type (`qwen` or `llama`)
+运行后，每条样本会得到一个 `CPQS_score`。
 
-   After running this script, you will obtain a JSON file containing a `CPQS_score` for each entry.
+### 3. 筛选数据集
 
-3. **Filter the Dataset**
+```bash
+python process_cpqs.py \
+  -i predict.json \
+  -o sorted_full.json \
+  -n 1000
+```
 
-   ```bash
-   python process_cpqs.py \
-     -i predict.json \
-     -o sorted_full.json \
-     -n 1000
-   ```
+参数说明：
 
-   * `--input_file` / `-i`：Path to the original JSON file.
-   * `--output_file` / `-o`：Path to the sorted, full JSON output.
-   * `--top_n` / `-n`：Optional. If `N > 0`, generates a `*_top_N.json` in the same directory containing only the first three fields, for downstream fine-tuning.
+- `--input_file` / `-i`：原始 JSON 路径
+- `--output_file` / `-o`：完整排序后的 JSON 输出路径
+- `--top_n` / `-n`：可选参数。如果 `N > 0`，会额外生成一个 `*_top_N.json` 文件，只保留前几项核心字段，便于下游微调
 
-   Once complete, you will have a high-quality subset of your data.
+运行完成后，即可得到筛选后的高质量子集。
 
+## 复现实验文档
 
+本仓库当前额外维护了一套中文复现实验文档，位于 `repro/` 目录，主要包括：
+
+- [README.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/README.md)
+- [STATUS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/STATUS.md)
+- [SCHEDULE.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/SCHEDULE.md)
+- [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
+
+这些文档会持续用中文记录当前复现进度、排程、结果表格和后续任务。
