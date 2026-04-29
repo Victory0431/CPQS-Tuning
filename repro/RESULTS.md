@@ -1,12 +1,31 @@
 # CPQS 当前结果汇总
 
-最后更新：2026-04-29 15:48 CST
+最后更新：2026-04-29 16:33 CST
 
 ## 一、说明
 
-以下表格基于当前已经**完整完成评测**的运行结果整理：
+以下表格基于当前已经**完整完成评测**的运行结果整理。
 
-- `Base`
+重要说明：
+
+- 旧版 `Base` 分数正在被重新核查
+- `2026-04-29` 已确认旧版 `Base` 评测脚本存在输出切分与答案抽取问题
+- 因此，下表中的旧 `Base` 行只保留作历史记录，**暂时不应用于最终结论**
+- 新版重评测目录：
+  - `repro_outputs/eval/base_v2_nonthinking`
+  - 日志：
+    - `repro_outputs/logs/base_eval_v2_nonthinking.log`
+
+当前已拿到的 30 条小样本 debug 结果显示，新版 `non-thinking` Base 已明显恢复到合理区间：
+
+- `GSM8K = 0.9333`
+- `MATH-500 = 0.4667`
+- `ARC-Challenge = 0.8667`
+- `MMLU subset = 0.6333`
+
+全量新版 Base 跑完后，这份结果表会优先用新版 Base 替换旧记录。
+
+- `Base（旧版，待替换）`
 - `Random-K seed 1`
 - `CNN Top-K seed 1`
 - `CNN Bottom-K seed 1`

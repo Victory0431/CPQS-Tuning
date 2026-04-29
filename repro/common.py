@@ -432,13 +432,23 @@ def normalize_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def strip_thinking_content(text: str) -> str:
+    cleaned = text.strip()
+    cleaned = re.sub(r"<think>.*?</think>\s*", "", cleaned, flags=re.DOTALL)
+    if cleaned.startswith("assistant\n"):
+        cleaned = cleaned.split("\n", 1)[1].lstrip()
+    elif cleaned.startswith("assistant "):
+        cleaned = cleaned[len("assistant ") :].lstrip()
+    return cleaned.strip()
+
+
 def extract_final_choice(text: str) -> str:
     patterns = [
         r"Final answer\s*[:：]\s*([A-D])\b",
         r"Answer\s*[:：]\s*([A-D])\b",
         r"\b([A-D])\b",
     ]
-    cleaned = text.upper()
+    cleaned = strip_thinking_content(text).upper()
     for pattern in patterns:
         match = re.search(pattern, cleaned)
         if match:
@@ -453,11 +463,22 @@ def extract_gsm8k_gold(answer: str) -> str:
 
 
 def normalize_number(text: str) -> str:
-    cleaned = text.strip()
+    cleaned = strip_thinking_content(text)
     cleaned = cleaned.replace(",", "")
     cleaned = cleaned.replace("$", "")
     cleaned = cleaned.replace("%", "")
     cleaned = re.sub(r"\\boxed\{([^{}]+)\}", r"\1", cleaned)
+    answer_tag_match = re.search(r"<answer>\s*(.*?)\s*</answer>", cleaned, flags=re.DOTALL | re.IGNORECASE)
+    if answer_tag_match:
+        cleaned = answer_tag_match.group(1).strip()
+    elif "<answer>" in cleaned.lower():
+        cleaned = re.split(r"<answer>", cleaned, flags=re.IGNORECASE)[-1].strip()
+    elif "####" in cleaned:
+        cleaned = cleaned.split("####")[-1].strip()
+    else:
+        final_match = re.search(r"Final answer\s*[:：]\s*(.+)", cleaned, flags=re.IGNORECASE | re.DOTALL)
+        if final_match:
+            cleaned = final_match.group(1).strip()
     numbers = re.findall(r"-?\d+(?:\.\d+)?", cleaned)
     if numbers:
         candidate = numbers[-1]
@@ -473,9 +494,13 @@ def normalize_number(text: str) -> str:
 
 
 def extract_math_candidate(text: str) -> str:
+    text = strip_thinking_content(text)
     boxed = re.findall(r"\\boxed\{(.+?)\}", text)
     if boxed:
         return boxed[-1]
+    answer_tag_match = re.search(r"<answer>\s*(.*?)\s*</answer>", text, flags=re.DOTALL | re.IGNORECASE)
+    if answer_tag_match:
+        return answer_tag_match.group(1).strip()
     final_match = re.search(r"Final answer\s*[:：]\s*(.+)", text, flags=re.IGNORECASE | re.DOTALL)
     if final_match:
         return final_match.group(1).strip()

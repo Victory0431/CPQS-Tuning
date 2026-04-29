@@ -9,16 +9,17 @@ from typing import Any, Dict, List, Sequence
 import torch
 from datasets import load_from_disk
 from peft import PeftModel
-from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from repro.common import (
     ensure_dir,
+    extract_math_candidate,
     extract_final_choice,
     extract_gsm8k_gold,
     format_mc_options,
     math_answers_equal,
     normalize_number,
+    strip_thinking_content,
     setup_logger,
     set_seed,
 )
@@ -38,16 +39,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mmlu_examples_per_subject", type=int, default=8)
     parser.add_argument("--mmlu_subset_seed", type=int, default=42)
     parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument("--enable_thinking", choices=["true", "false"], default="false")
+    parser.add_argument("--do_sample", choices=["true", "false"], default="false")
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--top_p", type=float, default=1.0)
+    parser.add_argument("--top_k", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--batch_size_gsm8k", type=int, default=4)
     parser.add_argument("--batch_size_math500", type=int, default=4)
     parser.add_argument("--batch_size_arc", type=int, default=8)
     parser.add_argument("--batch_size_mmlu", type=int, default=8)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--sample_dump_dir", default="")
+    parser.add_argument("--sample_dump_count", type=int, default=0)
     parser.add_argument("--progress_log_every_batches", type=int, default=20)
     parser.add_argument("--benchmarks", nargs="+", choices=BENCHMARK_CHOICES, default=BENCHMARK_CHOICES)
     parser.add_argument("--log_file", default="")
     return parser.parse_args()
+
+
+def parse_bool_flag(value: str) -> bool:
+    return value.lower() == "true"
 
 
 def load_model_and_tokenizer(model_path: str, adapter_path: str):
@@ -65,11 +77,6 @@ def load_model_and_tokenizer(model_path: str, adapter_path: str):
     if adapter_path:
         model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()
-    if hasattr(model, "generation_config"):
-        model.generation_config.do_sample = False
-        model.generation_config.temperature = None
-        model.generation_config.top_p = None
-        model.generation_config.top_k = None
     return tokenizer, model
 
 
@@ -78,32 +85,101 @@ def batched(items: Sequence[Dict[str, Any]], batch_size: int) -> Sequence[Sequen
         yield items[start : start + batch_size]
 
 
-def generate_batch(tokenizer, model, prompts: List[str], max_new_tokens: int) -> List[str]:
+def build_generation_kwargs(
+    tokenizer,
+    max_new_tokens: int,
+    do_sample: bool,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+) -> Dict[str, Any]:
+    generation_kwargs: Dict[str, Any] = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": do_sample,
+        "pad_token_id": tokenizer.pad_token_id,
+    }
+    if do_sample:
+        generation_kwargs["temperature"] = temperature
+        generation_kwargs["top_p"] = top_p
+        if top_k > 0:
+            generation_kwargs["top_k"] = top_k
+    return generation_kwargs
+
+
+def generate_batch(tokenizer, model, prompts: List[str], generation_kwargs: Dict[str, Any]) -> List[str]:
     encoded = tokenizer(prompts, return_tensors="pt", padding=True).to(model.device)
+    prompt_length = encoded["input_ids"].shape[1]
     with torch.no_grad():
-        generated = model.generate(
-            **encoded,
-            do_sample=False,
-            max_new_tokens=max_new_tokens,
-            pad_token_id=tokenizer.pad_token_id,
-        )
+        generated = model.generate(**encoded, **generation_kwargs)
     outputs: List[str] = []
-    input_lengths = encoded["attention_mask"].sum(dim=1).tolist()
-    for index, input_length in enumerate(input_lengths):
-        completion = generated[index, int(input_length) :]
+    for index in range(generated.shape[0]):
+        completion = generated[index, prompt_length:]
         outputs.append(tokenizer.decode(completion, skip_special_tokens=True).strip())
     return outputs
 
 
-def build_chat_prompt(tokenizer, user_content: str) -> str:
+def build_chat_prompt(tokenizer, user_content: str, enable_thinking: bool) -> str:
     return tokenizer.apply_chat_template(
         [{"role": "user", "content": user_content}],
         tokenize=False,
         add_generation_prompt=True,
+        enable_thinking=enable_thinking,
     )
 
 
-def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
+def build_gsm8k_prompt(question: str) -> str:
+    return (
+        "Solve the following math word problem carefully.\n"
+        "End the final line with exactly: #### <answer>\n\n"
+        f"Question: {question}"
+    )
+
+
+def build_math500_prompt(problem: str) -> str:
+    return (
+        "Solve the following math problem carefully.\n"
+        "End the final line with exactly: \\boxed{answer}\n\n"
+        f"Problem: {problem}"
+    )
+
+
+def build_arc_prompt(question: str, choices: Dict[str, Any]) -> str:
+    return (
+        "Answer the multiple-choice question.\n"
+        "Output only one uppercase letter on the final line: A, B, C, or D.\n\n"
+        f"Question: {question}\n{format_mc_options(choices)}"
+    )
+
+
+def build_mmlu_prompt(subject: str, question: str, options: Dict[str, Any]) -> str:
+    return (
+        "Answer the multiple-choice question.\n"
+        "Output only one uppercase letter on the final line: A, B, C, or D.\n\n"
+        f"Subject: {subject}\nQuestion: {question}\n{format_mc_options(options)}"
+    )
+
+
+def dump_sample_rows(sample_dump_dir: Path, dataset_name: str, rows: List[Dict[str, Any]], count: int, logger) -> None:
+    if count <= 0:
+        return
+    ensure_dir(sample_dump_dir)
+    dump_path = sample_dump_dir / f"{dataset_name}_samples.json"
+    with open(dump_path, "w", encoding="utf-8") as handle:
+        json.dump(rows[:count], handle, ensure_ascii=False, indent=2)
+    logger.info("Sample dump saved | %s | rows=%s", dump_path, min(len(rows), count))
+
+
+def evaluate_gsm8k(
+    tokenizer,
+    model,
+    dataset_root: str,
+    batch_size: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "gsm8k"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -114,16 +190,10 @@ def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new
     total_batches = (len(rows) + batch_size - 1) // batch_size
     start_time = time.time()
     for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
-        prompts = [
-            build_chat_prompt(
-                tokenizer,
-                "Solve the math word problem carefully. End your response with 'Final answer: <number>'.\n\n"
-                f"Question: {row['question']}",
-            )
-            for row in batch
-        ]
-        outputs = generate_batch(tokenizer, model, prompts, max_new_tokens)
-        for row, output in zip(batch, outputs):
+        prompt_texts = [build_gsm8k_prompt(row["question"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
             prediction = normalize_number(output)
             gold = extract_gsm8k_gold(row["answer"])
             is_correct = prediction == gold
@@ -131,8 +201,10 @@ def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new
             scored_rows.append(
                 {
                     "question": row["question"],
-                    "gold": gold,
-                    "prediction": prediction,
+                    "prompt": prompt_text,
+                    "gold_answer": gold,
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
                     "raw_output": output,
                     "correct": is_correct,
                 }
@@ -145,7 +217,17 @@ def evaluate_gsm8k(tokenizer, model, dataset_root: str, batch_size: int, max_new
     return {"dataset": "gsm8k", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
-def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
+def evaluate_math500(
+    tokenizer,
+    model,
+    dataset_root: str,
+    batch_size: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "math500"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -156,22 +238,20 @@ def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_n
     total_batches = (len(rows) + batch_size - 1) // batch_size
     start_time = time.time()
     for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
-        prompts = [
-            build_chat_prompt(
-                tokenizer,
-                "Solve the problem carefully. End your response with 'Final answer: <answer>'.\n\n"
-                f"Problem: {row['problem']}",
-            )
-            for row in batch
-        ]
-        outputs = generate_batch(tokenizer, model, prompts, max_new_tokens)
-        for row, output in zip(batch, outputs):
-            is_correct = math_answers_equal(output, row["answer"])
+        prompt_texts = [build_math500_prompt(row["problem"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
+            prediction = extract_math_candidate(output)
+            is_correct = math_answers_equal(prediction, row["answer"])
             correct += int(is_correct)
             scored_rows.append(
                 {
                     "problem": row["problem"],
-                    "gold": row["answer"],
+                    "prompt": prompt_text,
+                    "gold_answer": row["answer"],
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
                     "raw_output": output,
                     "correct": is_correct,
                 }
@@ -184,7 +264,17 @@ def evaluate_math500(tokenizer, model, dataset_root: str, batch_size: int, max_n
     return {"dataset": "math500", "score": correct / len(scored_rows), "rows": scored_rows}
 
 
-def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_tokens: int, limit: int, logger, progress_log_every_batches: int) -> Dict[str, Any]:
+def evaluate_arc(
+    tokenizer,
+    model,
+    dataset_root: str,
+    batch_size: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
+    limit: int,
+    logger,
+    progress_log_every_batches: int,
+) -> Dict[str, Any]:
     dataset = load_from_disk(str(Path(dataset_root) / "arc_challenge"))["test"]
     rows = [dataset[index] for index in range(len(dataset))]
     if limit > 0:
@@ -195,24 +285,20 @@ def evaluate_arc(tokenizer, model, dataset_root: str, batch_size: int, max_new_t
     total_batches = (len(rows) + batch_size - 1) // batch_size
     start_time = time.time()
     for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
-        prompts = [
-            build_chat_prompt(
-                tokenizer,
-                "Answer the multiple-choice question. End your response with 'Final answer: <A/B/C/D>'.\n\n"
-                f"Question: {row['question']}\n{format_mc_options(row['choices'])}",
-            )
-            for row in batch
-        ]
-        outputs = generate_batch(tokenizer, model, prompts, max_new_tokens)
-        for row, output in zip(batch, outputs):
+        prompt_texts = [build_arc_prompt(row["question"], row["choices"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
             prediction = extract_final_choice(output)
             is_correct = prediction == row["answerKey"]
             correct += int(is_correct)
             scored_rows.append(
                 {
                     "id": row["id"],
-                    "gold": row["answerKey"],
-                    "prediction": prediction,
+                    "prompt": prompt_text,
+                    "gold_answer": row["answerKey"],
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
                     "raw_output": output,
                     "correct": is_correct,
                 }
@@ -248,10 +334,11 @@ def evaluate_mmlu_subset(
     examples_per_subject: int,
     subset_seed: int,
     batch_size: int,
-    max_new_tokens: int,
     limit: int,
     logger,
     progress_log_every_batches: int,
+    generation_kwargs: Dict[str, Any],
+    enable_thinking: bool,
 ) -> Dict[str, Any]:
     rows = build_mmlu_subset(mmlu_path, examples_per_subject, subset_seed)
     if limit > 0:
@@ -262,24 +349,20 @@ def evaluate_mmlu_subset(
     total_batches = (len(rows) + batch_size - 1) // batch_size
     start_time = time.time()
     for batch_index, batch in enumerate(batched(rows, batch_size), start=1):
-        prompts = [
-            build_chat_prompt(
-                tokenizer,
-                "Answer the multiple-choice question. End your response with 'Final answer: <A/B/C/D>'.\n\n"
-                f"Subject: {row['subject']}\nQuestion: {row['question']}\n{format_mc_options(row['options'])}",
-            )
-            for row in batch
-        ]
-        outputs = generate_batch(tokenizer, model, prompts, max_new_tokens)
-        for row, output in zip(batch, outputs):
+        prompt_texts = [build_mmlu_prompt(row["subject"], row["question"], row["options"]) for row in batch]
+        prompts = [build_chat_prompt(tokenizer, prompt_text, enable_thinking) for prompt_text in prompt_texts]
+        outputs = generate_batch(tokenizer, model, prompts, generation_kwargs)
+        for row, prompt_text, output in zip(batch, prompt_texts, outputs):
             prediction = extract_final_choice(output)
             is_correct = prediction == row["answer"]
             correct += int(is_correct)
             scored_rows.append(
                 {
                     "subject": row["subject"],
-                    "gold": row["answer"],
-                    "prediction": prediction,
+                    "prompt": prompt_text,
+                    "gold_answer": row["answer"],
+                    "extracted_answer": prediction,
+                    "final_response": strip_thinking_content(output),
                     "raw_output": output,
                     "correct": is_correct,
                 }
@@ -304,13 +387,20 @@ def main() -> None:
     log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "evaluate_round1.log"
     logger = setup_logger("repro.evaluate_round1", log_file)
     logger.info("Evaluation started")
+    enable_thinking = parse_bool_flag(cfg.enable_thinking)
+    do_sample = parse_bool_flag(cfg.do_sample)
     logger.info(
-        "Config | group=%s seed=%s max_new_tokens=%s adapter=%s benchmarks=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
+        "Config | group=%s seed=%s adapter=%s benchmarks=%s thinking=%s do_sample=%s temperature=%s top_p=%s top_k=%s max_new_tokens=%s batch_sizes=(gsm8k:%s math:%s arc:%s mmlu:%s)",
         cfg.group_name,
         cfg.seed,
-        cfg.max_new_tokens,
         cfg.adapter_path or "<base>",
         ",".join(cfg.benchmarks),
+        enable_thinking,
+        do_sample,
+        cfg.temperature,
+        cfg.top_p,
+        cfg.top_k,
+        cfg.max_new_tokens,
         cfg.batch_size_gsm8k,
         cfg.batch_size_math500,
         cfg.batch_size_arc,
@@ -319,12 +409,21 @@ def main() -> None:
 
     logger.info("Loading model and tokenizer")
     tokenizer, model = load_model_and_tokenizer(cfg.model_path, cfg.adapter_path)
+    generation_kwargs = build_generation_kwargs(
+        tokenizer=tokenizer,
+        max_new_tokens=cfg.max_new_tokens,
+        do_sample=do_sample,
+        temperature=cfg.temperature,
+        top_p=cfg.top_p,
+        top_k=cfg.top_k,
+    )
     logger.info("Model and tokenizer loaded")
+    sample_dump_dir = Path(cfg.sample_dump_dir) if cfg.sample_dump_dir else output_dir / "samples"
 
     all_benchmark_jobs = [
-        ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_gsm8k, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
-        ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_math500, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
-        ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_arc, cfg.max_new_tokens, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("gsm8k", lambda: evaluate_gsm8k(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_gsm8k, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("math500", lambda: evaluate_math500(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_math500, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
+        ("arc_challenge", lambda: evaluate_arc(tokenizer, model, cfg.benchmarks_root, cfg.batch_size_arc, generation_kwargs, enable_thinking, cfg.limit, logger, cfg.progress_log_every_batches)),
         (
             "mmlu_subset",
             lambda: evaluate_mmlu_subset(
@@ -334,10 +433,11 @@ def main() -> None:
                 cfg.mmlu_examples_per_subject,
                 cfg.mmlu_subset_seed,
                 cfg.batch_size_mmlu,
-                cfg.max_new_tokens,
                 cfg.limit,
                 logger,
                 cfg.progress_log_every_batches,
+                generation_kwargs,
+                enable_thinking,
             ),
         ),
     ]
@@ -361,6 +461,7 @@ def main() -> None:
         dataset_name = result["dataset"]
         with open(output_dir / f"{dataset_name}_predictions.json", "w", encoding="utf-8") as handle:
             json.dump(result["rows"], handle, ensure_ascii=False, indent=2)
+        dump_sample_rows(sample_dump_dir, dataset_name, result["rows"], cfg.sample_dump_count, logger)
         row = {
             "group": cfg.group_name,
             "seed": cfg.seed,

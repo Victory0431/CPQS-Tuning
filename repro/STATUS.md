@@ -1,6 +1,6 @@
 # CPQS 复现状态
 
-最后更新：2026-04-29 15:48 CST
+最后更新：2026-04-29 16:33 CST
 
 ## 一、环境与仓库
 
@@ -110,9 +110,52 @@ CSV 文件见：
 - `repro_outputs/tables/per_run_scores.csv`
 - `repro_outputs/tables/group_mean_std.csv`
 
+### 6. Base 评测排查结论
+
+`2026-04-29` 对 `Qwen3-8B Base` 的评测异常做了专项排查，已经确认旧版 `Base` 分数不可信，主要问题来自评测脚本而不是模型本身：
+
+- 旧版 `evaluate_round1.py` 固定使用 `do_sample=False`
+- 旧版脚本没有暴露 `enable_thinking`
+- 旧版批量生成在 `left padding` 下切分输出的方式有 bug，会把半截 prompt 混进 `raw_output`
+- 旧版答案抽取对 `<think>...</think>`、`#### ...`、`<answer>...</answer>` 处理不充分
+
+已经完成的修复：
+
+- 新增 `enable_thinking / do_sample / temperature / top_p / top_k` 参数
+- 修复批量生成输出切分逻辑
+- 新增 `sample_dump_count / sample_dump_dir`
+- 统一为四个 benchmark 保存可人工核查的样例
+- 加强数字与数学答案抽取规则
+
+旧版 `Base` 结果中的异常证据：
+
+- `gsm8k` 旧结果中约 `17.8%` 样本存在 prompt 泄漏痕迹
+- `math500` 旧结果中约 `44.4%` 样本存在 prompt 泄漏痕迹
+- 旧 `gsm8k` 中有 `981/1319` 条没有走到最终答案标记
+
+30 条小样本 debug 结果：
+
+- `non-thinking`
+  - `GSM8K = 0.9333`
+  - `MATH-500 = 0.4667`
+  - `ARC-Challenge = 0.8667`
+  - `MMLU subset = 0.6333`
+- `thinking`
+  - `GSM8K = 0.5667`
+  - `MATH-500 = 0.1000`
+  - `ARC/MMLU` 仍在跑完中时已可见输出更长、更容易在 `max_new_tokens=512` 内截断
+
+当前判断：
+
+- 第一轮正式重评测应优先采用 `non-thinking`
+- 旧版 `Base` 分数暂时不应用于解释 `Top-K / Random-K / Bottom-K`
+- 已启动新版正式重评测：
+  - `repro_outputs/eval/base_v2_nonthinking`
+  - 日志：`repro_outputs/logs/base_eval_v2_nonthinking.log`
+
 ## 四、当前进行中的任务
 
-截至 `2026-04-29 15:42 CST`，当前真实在跑的 4 个任务如下：
+截至 `2026-04-29 16:33 CST`，当前主要任务如下：
 
 ### GPU0
 
@@ -127,6 +170,11 @@ CSV 文件见：
   - tmux：`cpqs_eval_top_seed2`
   - 日志：
     - `repro_outputs/logs/eval_cnn_top_k5000_seed2.log`
+- `Base thinking 30 条 debug`
+  - PID：`1269631`
+  - tmux：`cpqs_base_debug_think`
+  - 日志：
+    - `repro_outputs/logs/base_debug_thinking.log`
 
 ### GPU1
 
@@ -135,16 +183,17 @@ CSV 文件见：
   - tmux：`cpqs_eval_random_seed2`
   - 日志：
     - `repro_outputs/logs/eval_random_k5000_seed2.log`
-- `CNN Bottom-K seed 2` LoRA 训练
-  - PID：`1190279`
-  - tmux：`cpqs_lora_bottom_seed2`
+- `Base v2 non-thinking 正式重评测`
+  - PID：`1282377`
+  - tmux：`cpqs_eval_base_v2`
   - 日志：
-    - `repro_outputs/logs/lora_cnn_bottom_k5000_seed2.log`
+    - `repro_outputs/logs/base_eval_v2_nonthinking.log`
 
 说明：
 
-- 之前的 `Random-K seed 2` 和 `CNN Top-K seed 2` 训练本体已经完成，但 Python 进程未干净退出，已被回收
-- 现在两张卡都已经重新补齐到“每卡至少 2 个真实任务”
+- `Base non-thinking 30 条 debug` 已完成
+- `CNN Bottom-K seed 2` 训练进程已不在当前任务列表，需要结合产物与日志再确认是已完成还是已中断
+- 现在最关键的新任务是 `Base v2 non-thinking` 全量重评测
 
 ## 五、当前未完成项
 
@@ -152,6 +201,7 @@ CSV 文件见：
 
 - `Full seed 1` 训练完成
 - `Full seed 1` 评测
+- `Base v2 non-thinking` 全量评测完成并更新基线表
 
 第二波 seed 扩展还差：
 
