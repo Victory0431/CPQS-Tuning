@@ -1,6 +1,6 @@
 # CPQS 复现状态
 
-最后更新：2026-04-29 20:55 CST
+最后更新：2026-04-29 21:38 CST
 
 ## 一、环境与仓库
 
@@ -242,15 +242,14 @@ smoke 结果：
 - 这组结果只用于验证 `lm-eval + vLLM` 链路，不作为正式结论
 - 第一次 smoke 期间，`MMLU` 已完成本地缓存构建，后续正式跑会更快
 
-### 5. Base 正式全量评测已启动
+### 5. Base 正式全量评测已完成
 
-当前正在运行：
+结果如下：
 
-- `Base | lm-eval + vLLM | full benchmarks`
-
-tmux：
-
-- `cpqs_lmeval_base_vllm`
+- `MMLU = 0.4964`
+- `ARC-Challenge acc_norm = 0.4224`
+- `HellaSwag acc_norm = 0.5856`
+- `TruthfulQA MC1 = 0.3599`
 
 日志：
 
@@ -262,42 +261,61 @@ tmux：
 
 ## 七、当前运行中的任务
 
-截至 `2026-04-29 20:55 CST`，当前还能确认在跑的 GPU 任务有：
+截至 `2026-04-29 21:38 CST`，当前正式 `Alpaca-GPT4` 自动评测主线已经切到
+`lm-eval + vLLM`，并采用“每卡 2 个任务”的并行策略。
 
 ### GPU0
 
-- `Full seed 1` 训练
-  - PID：`565634`
-  - tmux：`cpqs_full_seed1_resume`
+- `Full seed 1` 正式评测
+  - tmux：`cpqs_eval_full_seed1`
   - 日志：
-    - `repro_outputs/logs/lora_full_seed1.log`
+    - `repro_outputs/logs/full_seed1_lm_eval_vllm.log`
+- `Random-K seed 1` 正式评测
+  - tmux：`cpqs_eval_random_seed1`
+  - 日志：
+    - `repro_outputs/logs/random_k5000_seed1_lm_eval_vllm.log`
 
 ### GPU1
 
-- `Base | lm-eval + vLLM | full benchmarks`
-  - tmux：`cpqs_lmeval_base_vllm`
+- `CNN Top-K seed 1` 正式评测
+  - tmux：`cpqs_eval_cnn_top_seed1`
   - 日志：
-    - `repro_outputs/logs/base_lm_eval_vllm.log`
+    - `repro_outputs/logs/cnn_top_k5000_seed1_lm_eval_vllm.log`
+- `CNN Bottom-K seed 1` 正式评测
+  - tmux：`cpqs_eval_cnn_bottom_seed1`
+  - 日志：
+    - `repro_outputs/logs/cnn_bottom_k5000_seed1_lm_eval_vllm.log`
+
+当前统一评测参数：
+
+- benchmark：
+  - `MMLU`
+  - `ARC-Challenge`
+  - `HellaSwag`
+  - `TruthfulQA MC1`
+- 推理参数：
+  - `temperature=0`
+  - `bf16`
+  - `max_model_len=2048`
+  - `batch_size=auto:2`
+  - `max_batch_size=16`
+  - `gpu_memory_utilization=0.4`
 
 ## 八、接下来的正确路线
 
 下一阶段建议按这个顺序推进：
 
-1. 等待 `Base` 正式全量评测完成并记录结果：
-   - `MMLU`
-   - `ARC-Challenge`
-   - `HellaSwag`
-   - `TruthfulQA`
-2. 用统一的 `lm-eval + vLLM` 脚本重跑：
-   - `Base`
-   - `Full`
-   - `Random-K`
-   - `CNN Top-K`
-   - `CNN Bottom-K`
-3. 在这套统一协议上重新做：
+1. 等当前 4 个正式评测任务完成，先汇总：
    - 原始分数表
    - mean/std 汇总表
-4. 之后如果要跑：
+2. 然后继续补齐剩余 seed：
+   - `Random-K seed 2`
+   - `Random-K seed 3`
+   - `CNN Top-K seed 2`
+   - `CNN Top-K seed 3`
+   - `CNN Bottom-K seed 2`
+   - `CNN Bottom-K seed 3`
+3. 之后如果要跑：
    - `GSM8K / MATH-500`
    - `HumanEval / GPQA`
 

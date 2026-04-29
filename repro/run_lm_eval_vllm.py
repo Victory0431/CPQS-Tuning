@@ -15,6 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model_path", required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--log_path", required=True)
+    parser.add_argument("--adapter_path", default=None)
     parser.add_argument(
         "--tasks",
         nargs="+",
@@ -34,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gpu_memory_utilization", type=float, default=0.9)
     parser.add_argument("--tensor_parallel_size", type=int, default=1)
     parser.add_argument("--data_parallel_size", type=int, default=1)
+    parser.add_argument("--max_lora_rank", type=int, default=16)
     parser.add_argument("--enable_thinking", action="store_true")
     parser.add_argument("--think_end_token", default="</think>")
     parser.add_argument("--hf_offline", action="store_true")
@@ -61,6 +63,9 @@ def build_command(args: argparse.Namespace) -> list[str]:
         f"max_model_len={args.max_model_len}",
         f"enable_thinking={thinking_flag}",
     ]
+    if args.adapter_path:
+        model_args.append(f"lora_local_path={args.adapter_path}")
+        model_args.append(f"max_lora_rank={args.max_lora_rank}")
     if args.enable_thinking:
         model_args.append(f'think_end_token="{args.think_end_token}"')
     model_args.extend(args.extra_model_arg)
@@ -119,6 +124,7 @@ def write_header(log_file, args: argparse.Namespace, command: list[str]) -> None
         "model_path": args.model_path,
         "output_dir": args.output_dir,
         "log_path": args.log_path,
+        "adapter_path": args.adapter_path,
         "tasks": args.tasks,
         "gpu": args.gpu,
         "batch_size": args.batch_size,
@@ -133,6 +139,7 @@ def write_header(log_file, args: argparse.Namespace, command: list[str]) -> None
         "gpu_memory_utilization": args.gpu_memory_utilization,
         "tensor_parallel_size": args.tensor_parallel_size,
         "data_parallel_size": args.data_parallel_size,
+        "max_lora_rank": args.max_lora_rank,
         "enable_thinking": args.enable_thinking,
         "hf_offline": args.hf_offline,
     }
