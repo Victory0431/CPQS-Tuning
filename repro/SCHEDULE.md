@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-29 21:56 CST
+最后更新：2026-04-29 22:03 CST
 
 ## 用途
 
@@ -66,32 +66,39 @@
   - `cpqs_queue_gpu0`
   - `cpqs_queue_gpu1`
 
+### 2026-04-29 第一批正式结果落盘
+
+- 已完成正式评测：
+  - `Base`
+  - `Full seed 1`
+  - `CNN Top-K seed 1`
+- 已更新正式汇总表：
+  - `alpaca_auto_per_run_scores.csv`
+  - `alpaca_auto_group_mean_std.csv`
+- 剩余未完成：
+  - `Random-K seed 1`
+  - `CNN Bottom-K seed 1`
+
 ## 当前排程
 
 ### GPU0
 
 - 正在运行：
-  - `Full seed 1` 正式评测
-  - tmux：`cpqs_eval_full_seed1`
-  - 日志：
-    - [full_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/full_seed1_lm_eval_vllm.log)
-- 排队等待：
   - `Random-K seed 1` 正式评测
-  - 队列 tmux：`cpqs_queue_gpu0`
-  - 队列日志：
+  - 启动时间：`2026-04-29 22:01 CST`
+  - 日志：
+    - [random_k5000_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/random_k5000_seed1_lm_eval_vllm.log)
+  - 队列启动日志：
     - [queue_gpu0.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/queue_gpu0.log)
 
 ### GPU1
 
 - 正在运行：
-  - `CNN Top-K seed 1` 正式评测
-  - tmux：`cpqs_eval_cnn_top_seed1`
-  - 日志：
-    - [cnn_top_k5000_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/cnn_top_k5000_seed1_lm_eval_vllm.log)
-- 排队等待：
   - `CNN Bottom-K seed 1` 正式评测
-  - 队列 tmux：`cpqs_queue_gpu1`
-  - 队列日志：
+  - 启动时间：`2026-04-29 22:01 CST`
+  - 日志：
+    - [cnn_bottom_k5000_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/cnn_bottom_k5000_seed1_lm_eval_vllm.log)
+  - 队列启动日志：
     - [queue_gpu1.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/queue_gpu1.log)
 
 ## 当前统一协议
@@ -112,9 +119,8 @@
 
 ## 下一步
 
-- 等 `Full seed 1 / CNN Top-K seed 1` 先完成。
-- 自动接续 `Random-K seed 1 / CNN Bottom-K seed 1`。
-- 四个 seed1 全部结束后：
+- 等 `Random-K seed 1 / CNN Bottom-K seed 1` 跑完。
+- 两个结果落盘后：
   - 重新聚合 `per-run` 表
   - 重新聚合 `mean/std` 表
   - 更新 [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)

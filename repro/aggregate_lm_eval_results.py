@@ -13,6 +13,14 @@ TARGET_METRICS = {
     "truthfulqa_mc1": "acc,none",
 }
 
+GROUP_LABELS = {
+    "base_lm_eval_vllm": "Base",
+    "full": "Full",
+    "random_k5000": "Random-K",
+    "cnn_top_k5000": "CNN Top-K",
+    "cnn_bottom_k5000": "CNN Bottom-K",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -26,15 +34,20 @@ def parse_args() -> argparse.Namespace:
 def infer_group_seed(eval_dir: Path) -> tuple[str, int]:
     name = eval_dir.name
     if name == "base_lm_eval_vllm":
-        return "base_lm_eval_vllm", 1
+        return "Base", 1
     parts = name.split("_seed")
     if len(parts) == 2 and parts[1].isdigit():
-        return parts[0], int(parts[1])
-    return name, 1
+        return GROUP_LABELS.get(parts[0], parts[0]), int(parts[1])
+    return GROUP_LABELS.get(name, name), 1
 
 
 def find_result_jsons(results_root: Path) -> list[Path]:
-    return sorted(results_root.glob("*/__*/*results_*.json"))
+    result_jsons = []
+    for path in sorted(results_root.glob("*/__*/*results_*.json")):
+        if "smoke" in str(path):
+            continue
+        result_jsons.append(path)
+    return result_jsons
 
 
 def load_score_rows(result_json: Path) -> list[dict]:

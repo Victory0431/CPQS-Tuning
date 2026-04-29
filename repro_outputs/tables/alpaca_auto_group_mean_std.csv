@@ -1,0 +1,13 @@
+group,dataset,num_runs,mean,std
+Base,arc_challenge,1,0.42235494880546076,0.0
+Base,hellaswag,1,0.5856403106950807,0.0
+Base,mmlu,1,0.4963680387409201,0.0
+Base,truthfulqa_mc1,1,0.3598531211750306,0.0
+CNN Top-K,arc_challenge,1,0.5,0.0
+CNN Top-K,hellaswag,1,0.6916948814977096,0.0
+CNN Top-K,mmlu,1,0.6887195556188577,0.0
+CNN Top-K,truthfulqa_mc1,1,0.3880048959608323,0.0
+Full,arc_challenge,1,0.5017064846416383,0.0
+Full,hellaswag,1,0.6987651862178849,0.0
+Full,mmlu,1,0.7223330009970089,0.0
+Full,truthfulqa_mc1,1,0.4259485924112607,0.0
