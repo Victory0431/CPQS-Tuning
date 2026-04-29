@@ -1,6 +1,6 @@
 # CPQS 当前结果汇总
 
-最后更新：2026-04-29 21:38 CST
+最后更新：2026-04-29 21:42 CST
 
 ## 一、当前哪些结果是可信的
 
@@ -80,10 +80,10 @@
 
 - `Alpaca-GPT4` 这条线的正式评测协议已经稳定到 `lm-eval + vLLM`
 - `Base` 正式基线已经跑完，可以作为后续 adapter 对比起点
-- `2026-04-29 21:38 CST` 已经启动第一批正式 adapter 评测：
-  - `Full seed 1`
-  - `Random-K seed 1`
-  - `CNN Top-K seed 1`
-  - `CNN Bottom-K seed 1`
+- `2026-04-29 21:42 CST` 当前排程为：
+  - 正在正式评测：`Full seed 1`、`CNN Top-K seed 1`
+  - 已挂自动接力队列：`Random-K seed 1`、`CNN Bottom-K seed 1`
+- 已验证：在 `max_model_len=2048` 的正式协议下，“每卡 2 个 vLLM 评测同时跑” 会因为
+  KV cache 显存不足而失败，因此当前采用“每卡 1 个正式评测 + 1 个排队任务”的稳妥方案
 
 在这些 adapter 全部完成前，不对最终优劣下结论。

@@ -1,6 +1,6 @@
 # CPQS 复现状态
 
-最后更新：2026-04-29 21:38 CST
+最后更新：2026-04-29 21:42 CST
 
 ## 一、环境与仓库
 
@@ -261,8 +261,12 @@ smoke 结果：
 
 ## 七、当前运行中的任务
 
-截至 `2026-04-29 21:38 CST`，当前正式 `Alpaca-GPT4` 自动评测主线已经切到
-`lm-eval + vLLM`，并采用“每卡 2 个任务”的并行策略。
+截至 `2026-04-29 21:42 CST`，当前正式 `Alpaca-GPT4` 自动评测主线已经切到
+`lm-eval + vLLM`。实测发现，在 `max_model_len=2048` 的正式协议下，同一张卡同时启动
+两个 `vLLM` 实例会在第二个实例初始化 KV cache 时显存不足，因此当前改为：
+
+- 每卡同时运行 `1` 个正式评测
+- 每卡挂 `1` 个自动接力队列
 
 ### GPU0
 
@@ -270,8 +274,8 @@ smoke 结果：
   - tmux：`cpqs_eval_full_seed1`
   - 日志：
     - `repro_outputs/logs/full_seed1_lm_eval_vllm.log`
-- `Random-K seed 1` 正式评测
-  - tmux：`cpqs_eval_random_seed1`
+- `Random-K seed 1` 自动接力队列
+  - tmux：`cpqs_queue_gpu0`
   - 日志：
     - `repro_outputs/logs/random_k5000_seed1_lm_eval_vllm.log`
 
@@ -281,8 +285,8 @@ smoke 结果：
   - tmux：`cpqs_eval_cnn_top_seed1`
   - 日志：
     - `repro_outputs/logs/cnn_top_k5000_seed1_lm_eval_vllm.log`
-- `CNN Bottom-K seed 1` 正式评测
-  - tmux：`cpqs_eval_cnn_bottom_seed1`
+- `CNN Bottom-K seed 1` 自动接力队列
+  - tmux：`cpqs_queue_gpu1`
   - 日志：
     - `repro_outputs/logs/cnn_bottom_k5000_seed1_lm_eval_vllm.log`
 
@@ -300,6 +304,15 @@ smoke 结果：
   - `batch_size=auto:2`
   - `max_batch_size=16`
   - `gpu_memory_utilization=0.4`
+
+本轮并行性验证结论：
+
+- “每卡 2 个正式 `vLLM` 评测同时跑” 当前不可行
+- 失败根因：
+  - `ValueError: No available memory for the cache blocks`
+- 因此当前最稳妥排程是：
+  - `GPU0`: `Full seed 1 -> Random-K seed 1`
+  - `GPU1`: `CNN Top-K seed 1 -> CNN Bottom-K seed 1`
 
 ## 八、接下来的正确路线
 
