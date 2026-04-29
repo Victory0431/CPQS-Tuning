@@ -1,6 +1,6 @@
 # CPQS Reproduction Status
 
-Last updated: 2026-04-29 11:03 CST
+Last updated: 2026-04-29 11:08 CST
 
 ## Repository And Environment
 
@@ -112,6 +112,14 @@ In progress:
     - dataset size `5000`
     - estimated total steps `939`
     - trainer loop started normally
+- `CNN Top-K seed 2`
+  - started at `2026-04-29 11:06 CST`
+  - output dir:
+    - `repro_outputs/lora/cnn_top_k5000/seed_2`
+  - latest confirmed log snapshot:
+    - dataset size `5000`
+    - estimated total steps `939`
+    - trainer loop started normally
 
 ## Evaluation Status
 
@@ -217,20 +225,22 @@ That confirmed the previous long jobs had not completed end-to-end and required 
 
 ### Active Snapshot
 
-As of `2026-04-29 10:59 CST`, the critical-path jobs still active are:
+As of `2026-04-29 11:06 CST`, the active jobs are:
 
 - `Full seed 1` resume training
   - GPU: `GPU0`
   - PID: `565634`
   - session: `tmux cpqs_full_seed1_resume`
+- `CNN Top-K seed 2` training
+  - GPU: `GPU0`
+  - PID: `678870`
+  - session: `tmux cpqs_lora_top_seed2`
 - `CNN Top-K seed 1` eval
   - GPU: `GPU1`
   - PID: `565643`
   - session: `tmux cpqs_eval_top_seed1`
-
-At `2026-04-29 11:00 CST`, an additional second-wave job was launched:
-
 - `Random-K seed 2` training
+  - GPU: `GPU1`
   - session: `tmux cpqs_lora_random_seed2`
   - PID: `663510`
   - latest confirmed status:
@@ -253,8 +263,8 @@ Current eval batch sizes:
    - group mean/std summary table
 5. Continue second-wave seed runs:
    - `Random-K seed 2` now running
+   - `CNN Top-K seed 2` now running
    - `Random-K seed 3` pending
-   - `CNN Top-K seed 2` pending
    - `CNN Top-K seed 3` pending
    - `CNN Bottom-K seed 2` pending
    - `CNN Bottom-K seed 3` pending
@@ -264,8 +274,8 @@ Current eval batch sizes:
 Current second-wave state:
 
 - `Random-K seed 2` running
+- `CNN Top-K seed 2` running
 - `Random-K seed 3`
-- `CNN Top-K seed 2`
 - `CNN Top-K seed 3`
 - `CNN Bottom-K seed 2`
 - `CNN Bottom-K seed 3`

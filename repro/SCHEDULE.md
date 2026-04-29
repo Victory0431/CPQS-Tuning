@@ -1,6 +1,6 @@
 # CPQS Remaining Tasks And Dual-GPU Schedule
 
-Last updated: 2026-04-29 11:04 CST
+Last updated: 2026-04-29 11:08 CST
 
 ## What Is Actually Done
 
@@ -27,6 +27,7 @@ Current state after the 2026-04-29 morning relaunches and follow-up continuation
 ### GPU0
 
 - `Full seed 1` resume training from `checkpoint-3251`
+- `CNN Top-K seed 2` LoRA training started at `2026-04-29 11:06 CST`
 
 ### GPU1
 
@@ -49,6 +50,8 @@ These are current best-effort estimates, not guarantees.
   - about `2.5-4.0` hours
 - `Random-K seed 2` LoRA:
   - about `1.5-2.0` hours
+- `CNN Top-K seed 2` LoRA:
+  - about `1.5-2.0` hours
 - aggregation and doc refresh:
   - about `10-20` minutes
 
@@ -67,8 +70,8 @@ If all relaunched jobs run cleanly:
 Second-wave runs still pending:
 
 - `Random-K seed 2` is now running
+- `CNN Top-K seed 2` is now running
 - `Random-K seed 3`
-- `CNN Top-K seed 2`
 - `CNN Top-K seed 3`
 - `CNN Bottom-K seed 2`
 - `CNN Bottom-K seed 3`
