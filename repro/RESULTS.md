@@ -98,6 +98,8 @@
   - `GSM8K` 训练 prompt 与 `Base` 推理 prompt 是否足够一致
   - `Qwen3` 在该监督格式下是否发生了过拟合或行为漂移
   - 是否需要改用更贴论文的模型与任务口径
+- 首轮回退排查文档：
+  - [GSM8K_FULL_REGRESSION_AUDIT.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/GSM8K_FULL_REGRESSION_AUDIT.md)
 
 ### 与论文表 3 的口径关系
 

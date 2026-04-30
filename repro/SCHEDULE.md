@@ -143,6 +143,25 @@
   - 暂缓直接进入 `CNN` 选择器实验
   - 先排查 `Full` 为什么会把 `GSM8K` 从 `0.9310` 拉低到 `0.8271`
 
+### 2026-04-30 GSM8K Full 回退首轮排查
+
+- 已完成一轮小型 ablation：
+  - 对齐 `Base` 与 `Full` 全量预测
+  - 重点查看 `Base 正确 / Full 错误` 的样本
+- 当前统计：
+  - `Full` 错误总数：`228`
+  - `Base 正确 / Full 错误`：`163`
+- 目前未发现以下问题：
+  - 答案抽取失败
+  - 输出被截断
+  - `<think>` 污染
+  - 非标准 non-thinking 模板输出
+- 当前最像的原因：
+  - `Full` 训练后数学推理本身退化
+  - 尤其体现在百分比、单位换算、多步约束链条
+- 已新增排查文档：
+  - [GSM8K_FULL_REGRESSION_AUDIT.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/GSM8K_FULL_REGRESSION_AUDIT.md)
+
 ## 当前排程
 
 - `GSM8K Base` 正式评测已经完成。
