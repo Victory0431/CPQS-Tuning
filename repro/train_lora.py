@@ -132,7 +132,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--per_device_train_batch_size", type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=16)
     parser.add_argument("--lora_rank", type=int, default=16)
-    parser.add_argument("--lora_alpha", type=int, default=16)
+    parser.add_argument("--lora_alpha", type=int, default=8)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
     parser.add_argument("--wandb_project", default=DEFAULT_WANDB_PROJECT)
     parser.add_argument("--wandb_entity", default=DEFAULT_WANDB_ENTITY)

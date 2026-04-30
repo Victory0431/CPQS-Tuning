@@ -1,6 +1,6 @@
 # CPQS 正式结果
 
-最后更新：2026-04-30 10:20 CST
+最后更新：2026-04-30 12:20 CST
 
 ## 正式评测口径
 
@@ -56,3 +56,56 @@
   - [alpaca_auto_per_run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/tables/alpaca_auto_per_run_scores.csv)
 - group mean/std 汇总表：
   - [alpaca_auto_group_mean_std.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/tables/alpaca_auto_group_mean_std.csv)
+
+## GSM8K 数学线正式结果
+
+### 当前正式口径
+
+- 数据集：`GSM8K test`
+- 模型：`Qwen3-8B`
+- 模式：`non-thinking`
+- 推理参数：
+  - `temperature=0`
+  - `do_sample=false`
+  - `max_new_tokens=512`
+  - `batch_size_gsm8k=32`
+- 自动评分：
+  - gold 从 `#### answer` 提取
+  - prediction 统一做数字归一化后 exact match
+
+### Base 正式结果
+
+| Method | GSM8K |
+| --- | ---: |
+| Base | 0.9310 |
+
+### 与论文表 3 的口径关系
+
+- 论文表 3 是“在 `GSM8K` 训练后，再在 `GSM8K` 上评测不同数据选择方法”。
+- 我们现在这条结果是数学线正式基线：
+  - 还没有经过 `GSM8K Full SFT`
+  - 也还没有进入 `Random-K / CNN Top-K / CNN Bottom-K`
+- 因此它当前只用于回答：
+  - `Base` 的 `GSM8K` 评测链路是否正常
+  - 后续 `Full / Random / CNN` 是否有一个可信起点
+
+### 当前判断
+
+- `Base = 0.9310`，说明这一版 `GSM8K` 自动评测链路是正常的。
+- 结合已落盘样例看，当前不存在“提示模板严重污染”或“答案抽取大面积失效”的迹象。
+- 因此下一步可以直接用同一协议比较：
+  - `Full`
+  - `Random-K`
+  - `CNN Top-K`
+  - `CNN Bottom-K`
+
+### 数学线结果文件
+
+- 正式分数表：
+  - [gsm8k_base_full_run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/run_scores.csv)
+- 正式日志：
+  - [gsm8k_base_full.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_base_full.log)
+- 正式样例：
+  - [gsm8k_samples.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/samples/gsm8k_samples.json)
+- 全量预测：
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/gsm8k_predictions.json)

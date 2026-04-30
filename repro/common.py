@@ -157,18 +157,28 @@ def build_prompts(question: str, answer: str, backbone: str) -> Tuple[Any, Any]:
     return user_only, full_dialog
 
 
-def render_prompts(tokenizer: AutoTokenizer, question: str, answer: str, backbone: str) -> Tuple[str, str]:
+def render_prompts(
+    tokenizer: AutoTokenizer,
+    question: str,
+    answer: str,
+    backbone: str,
+    *,
+    full_add_generation_prompt: bool = True,
+    enable_thinking: bool = False,
+) -> Tuple[str, str]:
     user_only, full_dialog = build_prompts(question, answer, backbone)
     if backbone == "qwen":
         user_prompt = tokenizer.apply_chat_template(
             user_only,
             tokenize=False,
             add_generation_prompt=True,
+            enable_thinking=enable_thinking,
         )
         full_prompt = tokenizer.apply_chat_template(
             full_dialog,
             tokenize=False,
-            add_generation_prompt=True,
+            add_generation_prompt=full_add_generation_prompt,
+            enable_thinking=enable_thinking,
         )
         return user_prompt, full_prompt
     return user_only, full_dialog
@@ -383,7 +393,13 @@ def build_sft_features(
     max_length: int,
 ) -> Optional[Dict[str, List[int]]]:
     question = f"{instruction}\nInput:{input_text}"
-    user_prompt, full_prompt = render_prompts(tokenizer, question, answer, backbone)
+    user_prompt, full_prompt = render_prompts(
+        tokenizer,
+        question,
+        answer,
+        backbone,
+        full_add_generation_prompt=False,
+    )
     user_inputs = tokenizer([user_prompt], return_tensors="pt")
     full_inputs = tokenizer([full_prompt], return_tensors="pt")
 

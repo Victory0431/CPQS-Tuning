@@ -149,3 +149,82 @@
   - `ALL_PROXY`
 
 如果后续又看到类似 `127.0.0.1:7890 refused` 的日志，优先检查代理环境变量，而不是先怀疑模型或 benchmark。
+
+## 10. `Full` 组 LoRA 超参必须和子集组完全一致
+
+本轮已经确认一个高影响错误：
+
+- `Full seed 1` 实际使用了 `lora_alpha=16`
+- `Random-K / CNN Top-K / CNN Bottom-K` 使用的是 `lora_alpha=8`
+
+这会直接污染：
+
+- `Full vs Base`
+- `Full vs Random-K`
+- `Full vs CNN Top-K`
+
+后续任何正式对比前，必须逐个检查每个 run 的：
+
+- `epochs`
+- `learning_rate`
+- `max_length`
+- `lora_rank`
+- `lora_alpha`
+- prompt 模板
+
+只有训练数据子集允许不同。
+
+## 11. `SFT` 监督区间必须只覆盖真实答案
+
+本轮还确认了另一个高影响问题：
+
+- `user_prompt` 用 `add_generation_prompt=True` 是合理的
+- 但 `full_prompt` 如果也继续用 `add_generation_prompt=True`
+- 就可能在答案后额外追加 assistant 起始标记
+- 这些额外 token 会一起进入 `labels`
+
+结果是：
+
+- 模型不只是学答案
+- 还会被训练去预测“答案后再起一个 assistant 块”
+
+后续任何新训练启动前，必须先做 token 级 smoke test，至少核对：
+
+- `user_prompt`
+- `full_prompt`
+- `start_idx`
+- `labels` 解码后的可见文本
+
+如果监督区间里包含了答案外的模板残片，这轮训练就不应继续。
+
+## 12. 文档每次修改后都要提交并推送仓库
+
+从现在开始，这条规则必须固定执行：
+
+- 只要修改了仓库中的文档
+- 就不要只停留在本地工作区
+- 必须完成：
+  - `git status` 自检
+  - `git add`
+  - `git commit`
+  - `git push origin`
+
+适用文档包括但不限于：
+
+- `RESULTS.md`
+- `SCHEDULE.md`
+- `ATTENTION_FOR_FUTURE_RUNS.md`
+- `README.md`
+- 各类实验方案、审计说明、状态说明
+
+原因：
+
+- 需要让用户随时能从远程仓库看到最新状态
+- 需要给后续模型保留连续留痕
+- 避免出现“本地文档已更新，但远程仓库仍是旧状态”的信息错位
+
+如果当前还有代码改动未准备好一起推送，也至少要明确说明：
+
+- 哪些文档已改
+- 为什么暂时未推送
+- 预计何时补推

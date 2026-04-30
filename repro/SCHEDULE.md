@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-30 10:20 CST
+最后更新：2026-04-30 12:20 CST
 
 ## 用途
 
@@ -91,13 +91,51 @@
   - `CNN Bottom-K`
 - `RESULTS.md` 已整理为论文 Table 1 风格主表。
 
+### 2026-04-30 实现审计与主线调整
+
+- 已完成对论文、原仓库、当前复现实现的逐项审计。
+- 审计结论：
+  - `CNN` 结构基本贴论文与原仓库
+  - 选择器训练流程大体贴近，但不是完全原样复现
+  - 当前最大偏差在 `LoRA SFT`，不是 `CNN` 本体
+- 已确认两个高影响问题：
+  - `Full seed 1` 使用了 `lora_alpha=16`，与其他组 `lora_alpha=8` 不一致
+  - `SFT full_prompt` 构造会把答案后额外追加的 assistant 起始标记一起纳入监督
+- 结论：
+  - 当前 Alpaca 主线结果不能直接支持论文结论
+  - 也不能据此直接反驳论文结论
+  - 需要先修复 `SFT` 再继续解释方法效果
+- 已新增文档：
+  - [IMPLEMENTATION_AUDIT.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/IMPLEMENTATION_AUDIT.md)
+  - [GSM8K_EXPERIMENT_PLAN.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/GSM8K_EXPERIMENT_PLAN.md)
+
+### 2026-04-30 GSM8K Base 正式基线完成
+
+- 已完成 `GSM8K Base` 正式全量评测。
+- 正式结果：
+  - `Base = 0.9310`
+- 正式日志显示：
+  - `1319` 条测试样本全部完成
+  - 最终 throughput 约 `0.88 samples/s`
+- 已落盘：
+  - 正式分数：
+    - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/run_scores.csv)
+  - 正式样例：
+    - [gsm8k_samples.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/samples/gsm8k_samples.json)
+  - 正式日志：
+    - [gsm8k_base_full.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_base_full.log)
+- 当前判断：
+  - 数学线 `GSM8K` 评测链路正常
+  - 可以继续拿同一协议比较 `Full / Random-K / CNN Top-K / CNN Bottom-K`
+
 ## 当前排程
 
-- 当前这一轮 `seed 1` 正式评测任务已经全部结束。
-- 若后续继续论文主线，应优先补：
-  - `Random-K seed 2 / seed 3`
-  - `CNN Top-K seed 2 / seed 3`
-  - `CNN Bottom-K seed 2 / seed 3`
+- `GSM8K Base` 正式评测已经完成。
+- `GSM8K Full seed 1` 当前正在运行：
+  - 训练日志：
+    - [gsm8k_lora_full_seed1.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_lora_full_seed1.log)
+  - 当前为“训练完成后自动接评测”模式
+- 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
 
@@ -117,12 +155,9 @@
 
 ## 下一步
 
-- 当前最重要的下一步是补齐多 seed：
-  - `Random-K seed 2 / seed 3`
-  - `CNN Top-K seed 2 / seed 3`
-  - `CNN Bottom-K seed 2 / seed 3`
-- 补齐后再做论文要求的重点比较：
-  - `CNN Top-K vs Random-K mean/std`
-  - `CNN Bottom-K vs Random-K mean/std`
-  - `Full vs Base`
-  - `CNN Top-K vs Full`
+- 当前最重要的下一步是等 `GSM8K Full seed 1` 跑完，并与 `Base=0.9310` 做第一张正式对照表。
+- 如果 `Full` 结果正常，再继续：
+  - 抽取 hidden states
+  - 训练 `CNN`
+  - 构造 `Random-K / CNN Top-K / CNN Bottom-K`
+  - 跑 3 seeds
