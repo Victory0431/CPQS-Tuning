@@ -3,6 +3,10 @@ Base,1,arc_challenge,0.42235494880546076,/home/qjh/llm_learning/CPQS_lab/CPQS-Tu
 Base,1,hellaswag,0.5856403106950807,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/base_lm_eval_vllm/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-17-31.610048.json
 Base,1,mmlu,0.4963680387409201,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/base_lm_eval_vllm/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-17-31.610048.json
 Base,1,truthfulqa_mc1,0.3598531211750306,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/base_lm_eval_vllm/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-17-31.610048.json
+CNN Bottom-K,1,arc_challenge,0.5204778156996587,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_bottom_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-23-17.412264.json
+CNN Bottom-K,1,hellaswag,0.6972714598685521,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_bottom_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-23-17.412264.json
+CNN Bottom-K,1,mmlu,0.7162085173052272,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_bottom_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-23-17.412264.json
+CNN Bottom-K,1,truthfulqa_mc1,0.3806609547123623,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_bottom_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-23-17.412264.json
 CNN Top-K,1,arc_challenge,0.5,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_top_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-58-25.756597.json
 CNN Top-K,1,hellaswag,0.6916948814977096,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_top_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-58-25.756597.json
 CNN Top-K,1,mmlu,0.6887195556188577,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/cnn_top_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-58-25.756597.json
@@ -11,3 +15,7 @@ Full,1,arc_challenge,0.5017064846416383,/home/qjh/llm_learning/CPQS_lab/CPQS-Tun
 Full,1,hellaswag,0.6987651862178849,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/full_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-57-43.285258.json
 Full,1,mmlu,0.7223330009970089,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/full_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-57-43.285258.json
 Full,1,truthfulqa_mc1,0.4259485924112607,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/full_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T21-57-43.285258.json
+Random-K,1,arc_challenge,0.5068259385665529,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/random_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-22-44.480740.json
+Random-K,1,hellaswag,0.6899024098785103,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/random_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-22-44.480740.json
+Random-K,1,mmlu,0.7209087024640365,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/random_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-22-44.480740.json
+Random-K,1,truthfulqa_mc1,0.39412484700122397,/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/random_k5000_seed1/__home__qjh__llm_learning__base_model__qwen3_8B/results_2026-04-29T22-22-44.480740.json

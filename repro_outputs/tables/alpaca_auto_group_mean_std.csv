@@ -3,6 +3,10 @@ Base,arc_challenge,1,0.42235494880546076,0.0
 Base,hellaswag,1,0.5856403106950807,0.0
 Base,mmlu,1,0.4963680387409201,0.0
 Base,truthfulqa_mc1,1,0.3598531211750306,0.0
+CNN Bottom-K,arc_challenge,1,0.5204778156996587,0.0
+CNN Bottom-K,hellaswag,1,0.6972714598685521,0.0
+CNN Bottom-K,mmlu,1,0.7162085173052272,0.0
+CNN Bottom-K,truthfulqa_mc1,1,0.3806609547123623,0.0
 CNN Top-K,arc_challenge,1,0.5,0.0
 CNN Top-K,hellaswag,1,0.6916948814977096,0.0
 CNN Top-K,mmlu,1,0.6887195556188577,0.0
@@ -11,3 +15,7 @@ Full,arc_challenge,1,0.5017064846416383,0.0
 Full,hellaswag,1,0.6987651862178849,0.0
 Full,mmlu,1,0.7223330009970089,0.0
 Full,truthfulqa_mc1,1,0.4259485924112607,0.0
+Random-K,arc_challenge,1,0.5068259385665529,0.0
+Random-K,hellaswag,1,0.6899024098785103,0.0
+Random-K,mmlu,1,0.7209087024640365,0.0
+Random-K,truthfulqa_mc1,1,0.39412484700122397,0.0

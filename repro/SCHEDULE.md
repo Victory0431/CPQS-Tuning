@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-29 22:03 CST
+最后更新：2026-04-30 10:20 CST
 
 ## 用途
 
@@ -79,27 +79,25 @@
   - `Random-K seed 1`
   - `CNN Bottom-K seed 1`
 
+### 2026-04-30 seed 1 正式评测收尾
+
+- `Random-K seed 1` 已完成正式评测。
+- `CNN Bottom-K seed 1` 已完成正式评测。
+- 本轮 seed 1 五组正式结果现已齐全：
+  - `Base`
+  - `Full`
+  - `Random-K`
+  - `CNN Top-K`
+  - `CNN Bottom-K`
+- `RESULTS.md` 已整理为论文 Table 1 风格主表。
+
 ## 当前排程
 
-### GPU0
-
-- 正在运行：
-  - `Random-K seed 1` 正式评测
-  - 启动时间：`2026-04-29 22:01 CST`
-  - 日志：
-    - [random_k5000_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/random_k5000_seed1_lm_eval_vllm.log)
-  - 队列启动日志：
-    - [queue_gpu0.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/queue_gpu0.log)
-
-### GPU1
-
-- 正在运行：
-  - `CNN Bottom-K seed 1` 正式评测
-  - 启动时间：`2026-04-29 22:01 CST`
-  - 日志：
-    - [cnn_bottom_k5000_seed1_lm_eval_vllm.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/cnn_bottom_k5000_seed1_lm_eval_vllm.log)
-  - 队列启动日志：
-    - [queue_gpu1.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/queue_gpu1.log)
+- 当前这一轮 `seed 1` 正式评测任务已经全部结束。
+- 若后续继续论文主线，应优先补：
+  - `Random-K seed 2 / seed 3`
+  - `CNN Top-K seed 2 / seed 3`
+  - `CNN Bottom-K seed 2 / seed 3`
 
 ## 当前统一协议
 
@@ -119,8 +117,12 @@
 
 ## 下一步
 
-- 等 `Random-K seed 1 / CNN Bottom-K seed 1` 跑完。
-- 两个结果落盘后：
-  - 重新聚合 `per-run` 表
-  - 重新聚合 `mean/std` 表
-  - 更新 [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
+- 当前最重要的下一步是补齐多 seed：
+  - `Random-K seed 2 / seed 3`
+  - `CNN Top-K seed 2 / seed 3`
+  - `CNN Bottom-K seed 2 / seed 3`
+- 补齐后再做论文要求的重点比较：
+  - `CNN Top-K vs Random-K mean/std`
+  - `CNN Bottom-K vs Random-K mean/std`
+  - `Full vs Base`
+  - `CNN Top-K vs Full`
