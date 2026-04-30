@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-30 16:55 CST
+最后更新：2026-04-30 17:00 CST
 
 ## 用途
 
@@ -209,6 +209,18 @@
 - 日志要求：
   - 所有训练和评测均写入 `repro_outputs/logs/`
   - 队列等待也必须有独立时间戳日志
+- 2026-04-30 16:42 CST 已确认实际启动：
+  - `tmux session`：
+    - `gsm8k_top500_pipeline`
+    - `gsm8k_random500_pipeline`
+    - `gsm8k_bottom500_queue`
+  - `wandb` 在线同步已确认正常：
+    - `gsm8k_cnn_top_500_seed1-seed1`
+    - `gsm8k_random_500_seed1-seed1`
+  - 当前日志入口：
+    - [gsm8k_cnn_top_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_cnn_top_500_seed1_train.log)
+    - [gsm8k_random_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_random_500_seed1_train.log)
+    - [gsm8k_bottom500_queue.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_bottom500_queue.log)
 
 ## 当前排程
 
