@@ -1,6 +1,6 @@
 # CPQS 正式结果
 
-最后更新：2026-04-30 12:20 CST
+最后更新：2026-04-30 14:35 CST
 
 ## 正式评测口径
 
@@ -79,6 +79,26 @@
 | --- | ---: |
 | Base | 0.9310 |
 
+### Base vs Full 正式对照
+
+| Method | GSM8K |
+| --- | ---: |
+| Base | 0.9310 |
+| Full seed 1 | 0.8271 |
+
+### 当前直接结论
+
+- 当前 `Full seed 1 = 0.8271`，明显低于 `Base = 0.9310`。
+- 这说明在当前这版 `GSM8K Full SFT` 协议下，模型性能出现了明显回退。
+- 因此当前不适合立刻继续推进：
+  - `Random-K`
+  - `CNN Top-K`
+  - `CNN Bottom-K`
+- 更合理的顺序是先排查：
+  - `GSM8K` 训练 prompt 与 `Base` 推理 prompt 是否足够一致
+  - `Qwen3` 在该监督格式下是否发生了过拟合或行为漂移
+  - 是否需要改用更贴论文的模型与任务口径
+
 ### 与论文表 3 的口径关系
 
 - 论文表 3 是“在 `GSM8K` 训练后，再在 `GSM8K` 上评测不同数据选择方法”。
@@ -93,11 +113,9 @@
 
 - `Base = 0.9310`，说明这一版 `GSM8K` 自动评测链路是正常的。
 - 结合已落盘样例看，当前不存在“提示模板严重污染”或“答案抽取大面积失效”的迹象。
-- 因此下一步可以直接用同一协议比较：
-  - `Full`
-  - `Random-K`
-  - `CNN Top-K`
-  - `CNN Bottom-K`
+- 但 `Full seed 1 = 0.8271` 明显低于 `Base`，所以当前优先级应调整为：
+  - 先分析 `Full` 回退原因
+  - 暂缓进入 `CNN` 选择器实验
 
 ### 数学线结果文件
 
@@ -109,3 +127,11 @@
   - [gsm8k_samples.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/samples/gsm8k_samples.json)
 - 全量预测：
   - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_base_full/gsm8k_predictions.json)
+- `Full seed 1` 分数表：
+  - [gsm8k_full_seed1_run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_full_seed1/run_scores.csv)
+- `Full seed 1` 日志：
+  - [gsm8k_full_eval_seed1.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_full_eval_seed1.log)
+- `Full seed 1` 样例：
+  - [gsm8k_samples.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_full_seed1/samples/gsm8k_samples.json)
+- `Full seed 1` 全量预测：
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_full_seed1/gsm8k_predictions.json)

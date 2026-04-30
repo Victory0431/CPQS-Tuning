@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-30 12:20 CST
+最后更新：2026-04-30 14:35 CST
 
 ## 用途
 
@@ -128,13 +128,26 @@
   - 数学线 `GSM8K` 评测链路正常
   - 可以继续拿同一协议比较 `Full / Random-K / CNN Top-K / CNN Bottom-K`
 
+### 2026-04-30 GSM8K Full seed 1 完成
+
+- `GSM8K Full seed 1` 已完成训练与正式评测。
+- 正式结果：
+  - `Full seed 1 = 0.8271`
+- 与当前正式基线对比：
+  - `Base = 0.9310`
+  - `Full` 明显低于 `Base`
+- 这意味着：
+  - 当前数学线不是“Full 提升后再比较 Top-K/Random-K”的状态
+  - 而是“Full 已经先发生性能回退”
+- 当前最合理的动作：
+  - 暂缓直接进入 `CNN` 选择器实验
+  - 先排查 `Full` 为什么会把 `GSM8K` 从 `0.9310` 拉低到 `0.8271`
+
 ## 当前排程
 
 - `GSM8K Base` 正式评测已经完成。
-- `GSM8K Full seed 1` 当前正在运行：
-  - 训练日志：
-    - [gsm8k_lora_full_seed1.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_lora_full_seed1.log)
-  - 当前为“训练完成后自动接评测”模式
+- `GSM8K Full seed 1` 也已经完成。
+- 当前主任务从“继续跑更多组”切换为“先解释为什么 Full 明显低于 Base”。
 - 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
@@ -155,9 +168,10 @@
 
 ## 下一步
 
-- 当前最重要的下一步是等 `GSM8K Full seed 1` 跑完，并与 `Base=0.9310` 做第一张正式对照表。
-- 如果 `Full` 结果正常，再继续：
-  - 抽取 hidden states
-  - 训练 `CNN`
-  - 构造 `Random-K / CNN Top-K / CNN Bottom-K`
-  - 跑 3 seeds
+- 当前最重要的下一步是排查：
+  - 为什么 `Full seed 1 = 0.8271`
+  - 而 `Base = 0.9310`
+- 在排查清楚前，不建议继续堆：
+  - `Random-K`
+  - `CNN Top-K`
+  - `CNN Bottom-K`
