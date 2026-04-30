@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-30 14:35 CST
+最后更新：2026-04-30 16:55 CST
 
 ## 用途
 
@@ -162,11 +162,65 @@
 - 已新增排查文档：
   - [GSM8K_FULL_REGRESSION_AUDIT.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/GSM8K_FULL_REGRESSION_AUDIT.md)
 
+### 2026-04-30 GSM8K Top/Bottom/Random-500 探索版启动
+
+- 用户要求继续推进论文 `GSM8K` 下游任务风格实验：
+  - `Top-500`
+  - `Bottom-500`
+  - `Random-500`
+- 当前执行版说明：
+  - 先不重训 `GSM8K` 专用 selector
+  - 直接使用现有 `selector_round1` 的 `best_selector.pth`
+  - 对全部 `GSM8K train (7473)` 做迁移打分
+- 当前这一步已经完成：
+  - `GSM8K train (7473)` 全量迁移打分
+  - 分数分布图生成
+  - `Top-500 / Bottom-500 / Random-500` 三个子集构造
+- 已落盘结果：
+  - [scored_candidates.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/scored_existing_selector/scored_candidates.json)
+  - [gsm8k_score_histogram.png](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/plots_transfer500/gsm8k_score_histogram.png)
+  - [gsm8k_score_curve.png](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/plots_transfer500/gsm8k_score_curve.png)
+  - [cnn_top_500.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/cnn_top_500.json)
+  - [cnn_bottom_500.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/cnn_bottom_500.json)
+  - [random_500_seed_1.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/random_500_seed_1.json)
+- 本轮新增脚本：
+  - [plot_gsm8k_selector_scores.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/plot_gsm8k_selector_scores.py)
+  - [build_gsm8k_subsets.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/build_gsm8k_subsets.py)
+  - [run_gsm8k_prepare_transfer500.sh](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/run_gsm8k_prepare_transfer500.sh)
+  - [run_gsm8k_train_eval.sh](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/run_gsm8k_train_eval.sh)
+
+### 2026-04-30 GSM8K transfer-500 双卡排程
+
+- 当前正式执行排程如下：
+  - `GPU0`：
+    - `cnn_top_500 seed 1` 训练 + 评测
+  - `GPU1`：
+    - `random_500 seed 1` 训练 + 评测
+  - 排队任务：
+    - `cnn_bottom_500 seed 1` 在任一空闲卡上接续启动
+- 统一协议：
+  - 模型：`Qwen3-8B`
+  - epoch：`3`
+  - lr：`5e-5`
+  - LoRA：`r=16, alpha=8`
+  - batch：`per_device=1, grad_acc=16`
+  - eval：`GSM8K test`
+  - decode：`non-thinking, temperature=0, batch_size_gsm8k=32`
+- 日志要求：
+  - 所有训练和评测均写入 `repro_outputs/logs/`
+  - 队列等待也必须有独立时间戳日志
+
 ## 当前排程
 
 - `GSM8K Base` 正式评测已经完成。
 - `GSM8K Full seed 1` 也已经完成。
-- 当前主任务从“继续跑更多组”切换为“先解释为什么 Full 明显低于 Base”。
+- `GSM8K Full < Base` 的首轮排查已经完成。
+- `GSM8K train` 的 selector 迁移打分已经完成。
+- `Top-500 / Bottom-500 / Random-500` 子集已经准备好。
+- 当前主任务已切换为：
+  - 启动三组 `LoRA + GSM8K eval`
+  - 汇总 `Base / Full / Random-500 / CNN Top-500 / CNN Bottom-500`
+  - 判断 selector 迁移到数学域后是否优于随机采样
 - 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
@@ -187,10 +241,12 @@
 
 ## 下一步
 
-- 当前最重要的下一步是排查：
-  - 为什么 `Full seed 1 = 0.8271`
-  - 而 `Base = 0.9310`
-- 在排查清楚前，不建议继续堆：
-  - `Random-K`
-  - `CNN Top-K`
-  - `CNN Bottom-K`
+- 当前最重要的下一步是：
+  - 跑完 `Random-500 / CNN Top-500 / CNN Bottom-500`
+  - 形成与 `Base / Full` 的同表对照
+  - 看是否出现：
+    - `CNN Top-500 > Random-500`
+    - `CNN Bottom-500 < Random-500`
+- 这轮结果应解释为：
+  - 现有 selector 迁移到 `GSM8K` 的探索实验
+  - 不是最严格的论文同构版 selector 训练实验

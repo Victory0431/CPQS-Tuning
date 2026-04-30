@@ -85,6 +85,7 @@ def main() -> None:
     total_records = len(records)
     total_batches = (total_records + cfg.batch_size - 1) // cfg.batch_size
     start_time = time.time()
+    last_logged_processed = 0
 
     for batch_index, start in enumerate(range(0, total_records, cfg.batch_size), start=1):
         batch = records[start : start + cfg.batch_size]
@@ -119,7 +120,10 @@ def main() -> None:
             append_jsonl(partial_jsonl, scored_record)
 
         processed = min(start + len(batch), total_records)
-        if processed % cfg.progress_log_every == 0 or batch_index == total_batches:
+        if (
+            processed - last_logged_processed >= cfg.progress_log_every
+            or batch_index == total_batches
+        ):
             elapsed = time.time() - start_time
             throughput = processed / elapsed if elapsed > 0 else 0.0
             eta_seconds = (total_records - processed) / throughput if throughput > 0 else -1.0
@@ -132,6 +136,7 @@ def main() -> None:
                 throughput,
                 eta_seconds / 60 if eta_seconds >= 0 else -1.0,
             )
+            last_logged_processed = processed
 
     scored_records.sort(key=lambda item: item["cpqs_score"], reverse=True)
     logger.info("Sorting completed | total_records=%s", len(scored_records))

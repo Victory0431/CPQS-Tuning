@@ -1,6 +1,6 @@
 # CPQS 正式结果
 
-最后更新：2026-04-30 14:35 CST
+最后更新：2026-04-30 16:55 CST
 
 ## 正式评测口径
 
@@ -90,34 +90,99 @@
 
 - 当前 `Full seed 1 = 0.8271`，明显低于 `Base = 0.9310`。
 - 这说明在当前这版 `GSM8K Full SFT` 协议下，模型性能出现了明显回退。
-- 因此当前不适合立刻继续推进：
-  - `Random-K`
-  - `CNN Top-K`
-  - `CNN Bottom-K`
-- 更合理的顺序是先排查：
-  - `GSM8K` 训练 prompt 与 `Base` 推理 prompt 是否足够一致
-  - `Qwen3` 在该监督格式下是否发生了过拟合或行为漂移
-  - 是否需要改用更贴论文的模型与任务口径
-- 首轮回退排查文档：
+- 这并不等于后续 `Random-500 / CNN Top-500 / CNN Bottom-500` 没有分析价值。
+- 当前已经转入一条更明确的探索线：
+  - 直接用现有 selector 对 `GSM8K train` 全量打分
+  - 构造 `Top-500 / Bottom-500 / Random-500`
+  - 比较小规模子集在数学任务上的迁移效果
+- `Full < Base` 的首轮排查文档仍保留作为背景依据：
   - [GSM8K_FULL_REGRESSION_AUDIT.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/GSM8K_FULL_REGRESSION_AUDIT.md)
 
 ### 与论文表 3 的口径关系
 
 - 论文表 3 是“在 `GSM8K` 训练后，再在 `GSM8K` 上评测不同数据选择方法”。
-- 我们现在这条结果是数学线正式基线：
-  - 还没有经过 `GSM8K Full SFT`
-  - 也还没有进入 `Random-K / CNN Top-K / CNN Bottom-K`
-- 因此它当前只用于回答：
-  - `Base` 的 `GSM8K` 评测链路是否正常
-  - 后续 `Full / Random / CNN` 是否有一个可信起点
+- 我们当前这轮正在执行的是一个探索版迁移实验：
+  - selector 不是在 `GSM8K` 域内重训
+  - 而是直接复用现有 `Alpaca` 主线训练得到的 selector
+  - 然后迁移到 `GSM8K train` 上做全量打分
+- 因此这轮结果的解释应当是：
+  - “现有 CPQS selector 迁移到数学域后，对 `Top-500 / Bottom-500 / Random-500` 的区分是否有用”
+  - 而不是“论文表 3 的严格同构复现”
 
 ### 当前判断
 
 - `Base = 0.9310`，说明这一版 `GSM8K` 自动评测链路是正常的。
 - 结合已落盘样例看，当前不存在“提示模板严重污染”或“答案抽取大面积失效”的迹象。
-- 但 `Full seed 1 = 0.8271` 明显低于 `Base`，所以当前优先级应调整为：
-  - 先分析 `Full` 回退原因
-  - 暂缓进入 `CNN` 选择器实验
+- `Full seed 1` 明显低于 `Base`，说明当前 `Qwen3-8B + GSM8K Full SFT` 协议本身存在性能回退风险。
+- 也正因为如此，`Top-500 / Bottom-500 / Random-500` 小数据实验更值得看：
+  - 它可以帮助我们判断“回退是否来自全量监督本身”
+  - 也可以帮助我们判断“selector 迁移后是否至少能优于随机采样”
+
+### GSM8K selector 迁移打分完成
+
+这一步已经完成，当前使用的是现有 selector：
+
+- checkpoint：
+  - [best_selector.pth](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/selector_round1/checkpoints/best_selector.pth)
+- 候选池：
+  - [full_train.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/full_train.json)
+- 总样本数：
+  - `7473`
+
+打分输出已经落盘：
+
+- JSON：
+  - [scored_candidates.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/scored_existing_selector/scored_candidates.json)
+- CSV：
+  - [scored_candidates.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/scored_existing_selector/scored_candidates.csv)
+- 日志：
+  - [gsm8k_score_existing_selector.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_score_existing_selector.log)
+
+分数摘要如下：
+
+| 指标 | 数值 |
+| --- | ---: |
+| 总样本数 | 7473 |
+| 最高分 | 0.7053 |
+| 最低分 | 0.0017 |
+| 平均分 | 0.4013 |
+| Top-500 阈值 | 0.5648 |
+| Bottom-500 阈值 | 0.1999 |
+
+### GSM8K 分数分布图
+
+- 直方图：
+  - [gsm8k_score_histogram.png](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/plots_transfer500/gsm8k_score_histogram.png)
+- 排序曲线：
+  - [gsm8k_score_curve.png](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/plots_transfer500/gsm8k_score_curve.png)
+- 摘要：
+  - [score_summary.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/plots_transfer500/score_summary.json)
+
+从当前分布看：
+
+- 高分段和低分段之间存在可见间隔，不是完全挤在一起。
+- 但这仍然只是“selector 分数分离度”，不能直接等价为“下游训练效果差异”。
+- 是否真的有用，还要看后续 `Top-500 / Bottom-500 / Random-500` 的正式 `GSM8K` 评测。
+
+### GSM8K Top-500 / Bottom-500 / Random-500 子集已构造
+
+当前 3 个训练子集都已经准备好：
+
+- [cnn_top_500.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/cnn_top_500.json)
+- [cnn_bottom_500.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/cnn_bottom_500.json)
+- [random_500_seed_1.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/random_500_seed_1.json)
+- 清单：
+  - [subset_manifest.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/subset_manifest.csv)
+
+### GSM8K transfer-500 当前待完成项
+
+当前还没有完成正式结果的组别是：
+
+| Method | 训练集 | 状态 |
+| --- | --- | --- |
+| Random-500 seed 1 | 随机 500 条 | 待训练评测 |
+| CNN Top-500 seed 1 | 分数最高 500 条 | 待训练评测 |
+| CNN Bottom-500 seed 1 | 分数最低 500 条 | 待训练评测 |
 
 ### 数学线结果文件
 

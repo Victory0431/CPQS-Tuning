@@ -59,6 +59,58 @@
 
 这是最快能回答“当前方法在数学数据上到底有没有用”的方案。
 
+## 当前实际执行版
+
+截至 2026-04-30，本轮实际执行的是一个“迁移 selector 到 GSM8K”的探索版：
+
+- 不重新训练 `GSM8K` 域内 selector
+- 直接复用现有 `selector_round1` 的最优 checkpoint
+- 对 `GSM8K train (7473)` 全量打分
+- 构造：
+  - `CNN Top-500`
+  - `CNN Bottom-500`
+  - `Random-500`
+- 然后在统一 `LoRA SFT` 协议下分别训练并在 `GSM8K test` 上评测
+
+这轮实验的作用是：
+
+- 快速判断现有 `CPQS` 选择器迁移到数学域后，是否仍然能区分“更有帮助”和“更无帮助”的样本
+- 判断 `CNN Top-500` 至少是否能优于 `Random-500`
+- 判断 `CNN Bottom-500` 是否会显著差于 `Random-500`
+
+这不是论文表 3 的最严格同构复现，因为：
+
+- selector 不是在 `GSM8K` 域内训练出来的
+- 外部 baseline 例如 `Self / MoDs / Alpagasus / Superfiltering` 这轮还未纳入
+
+但它仍然能非常快地回答一个重要问题：
+
+- 现有 selector 是否具备跨域迁移价值
+
+## 当前状态
+
+当前已完成：
+
+- `GSM8K Base = 0.9310`
+- `GSM8K Full seed 1 = 0.8271`
+- `GSM8K train` 全量打分完成
+- 分数分布图完成
+- `Top-500 / Bottom-500 / Random-500` 子集构造完成
+
+当前待完成：
+
+- `CNN Top-500 seed 1` 训练 + 评测
+- `CNN Bottom-500 seed 1` 训练 + 评测
+- `Random-500 seed 1` 训练 + 评测
+
+这三组结束后，结果表将统一比较：
+
+- `Base`
+- `Full`
+- `Random-500`
+- `CNN Top-500`
+- `CNN Bottom-500`
+
 ## 阶段 B：再补论文表 3 外部 baseline
 
 如果阶段 A 结果有希望，再补以下方法：
@@ -358,3 +410,67 @@
 - `K` 先取 `3000`
 
 这会是最快看到方法是否还有希望的一轮实验。
+
+## 当前实际执行版
+
+截至 `2026-04-30`，当前准备执行的是一个更快的探索版，而不是最严格的论文同构版。
+
+### 当前执行设置
+
+- 候选池：`GSM8K train`
+- 评分器：
+  - 先使用已经训练好的现有 `CNN selector`
+  - 即 `repro_outputs/selector_round1/checkpoints/best_selector.pth`
+- 评分目标：
+  - 对全部 `7473` 条 `GSM8K train` 打 `CPQS score`
+- 子集规模：
+  - `Top-500`
+  - `Bottom-500`
+  - `Random-500`
+- 训练模型：
+  - 当前先用 `Qwen3-8B`
+- 评测集：
+  - `GSM8K test`
+
+### 为什么先这样做
+
+- 当前 `Full < Base` 的现象已经出现
+- 如果现在再额外重训一个 `GSM8K` 专用 selector，会把排查周期拉长
+- 所以先用现有 selector 做一版迁移打分，快速回答：
+  - `Top-500` 有没有比 `Random-500` 更好
+  - `Bottom-500` 是否明显更差
+
+### 这一版和严格复刻的差异
+
+严格复刻更接近：
+
+- 在 `GSM8K` 域内重新定义正负样本
+- 重新训练领域 selector
+- 再对 `GSM8K train` 打分
+
+而当前执行版是：
+
+- 直接把现有 selector 迁移到 `GSM8K train`
+
+因此这轮结果应解释为：
+
+- `CPQS selector` 的迁移打分探索实验
+
+而不是：
+
+- 论文 `GSM8K` 下游任务的最严格复刻
+
+### 当前新增产物
+
+本轮会新增：
+
+- `GSM8K train` 全量打分结果
+- `Top-500 / Bottom-500 / Random-500` 三个训练子集
+- 分数分布图：
+  - 直方图
+  - 排序曲线图
+
+这些结果会同步更新到：
+
+- [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
+- [SCHEDULE.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/SCHEDULE.md)
