@@ -1,6 +1,6 @@
 # CPQS 正式结果
 
-最后更新：2026-04-30 16:55 CST
+最后更新：2026-05-01 11:35 CST
 
 ## 正式评测口径
 
@@ -174,15 +174,41 @@
 - 清单：
   - [subset_manifest.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/gsm8k/subsets_transfer500/subset_manifest.csv)
 
-### GSM8K transfer-500 当前待完成项
+### GSM8K transfer-500 正式结果
 
-当前还没有完成正式结果的组别是：
+| Method | GSM8K |
+| --- | ---: |
+| Base | 0.9310 |
+| Full seed 1 | 0.8271 |
+| Random-500 seed 1 | 0.8461 |
+| CNN Top-500 seed 1 | 0.8431 |
+| CNN Bottom-500 seed 1 | 0.8143 |
 
-| Method | 训练集 | 状态 |
-| --- | --- | --- |
-| Random-500 seed 1 | 随机 500 条 | 待训练评测 |
-| CNN Top-500 seed 1 | 分数最高 500 条 | 待训练评测 |
-| CNN Bottom-500 seed 1 | 分数最低 500 条 | 待训练评测 |
+### GSM8K transfer-500 当前结论
+
+- `Random-500` 明显高于 `CNN Bottom-500`。
+- `CNN Bottom-500` 也低于 `Full seed 1`。
+- 这说明当前迁移 selector 至少具备一定“识别坏数据”的能力。
+- 但 `CNN Top-500` 还没有超过 `Random-500`。
+- 因此这轮结果不能支持“迁移 selector 已经能稳定挑出更优数学训练数据”。
+- 更合理的下一步不是继续堆这版迁移 selector 的更多 seed，而是转向：
+  - 在 `GSM8K` 域内重新构造正负样本
+  - 训练 `GSM8K` 专用 selector
+  - 再比较 `Top-500 / Bottom-500 / Random-500`
+
+### GSM8K transfer-500 与 Full 的关系
+
+- `Random-500 = 0.8461`，高于 `Full = 0.8271`
+- `CNN Top-500 = 0.8431`，也高于 `Full = 0.8271`
+- 这说明在当前协议下，小规模子集训练未必比全量训练差。
+- 当前最差的是：
+  - `CNN Bottom-500 = 0.8143`
+- 当前最强的微调组仍然没有超过：
+  - `Base = 0.9310`
+- 所以现阶段更像是：
+  - `Qwen3-8B` 原本 `GSM8K` 能力已经很强
+  - 额外 SFT 很容易造成回退
+  - selector 的价值更可能体现在“少伤害”而不是“超越 Base”
 
 ### 数学线结果文件
 
@@ -202,3 +228,21 @@
   - [gsm8k_samples.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_full_seed1/samples/gsm8k_samples.json)
 - `Full seed 1` 全量预测：
   - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_full_seed1/gsm8k_predictions.json)
+- `Random-500 seed 1` 分数表：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_random_500_seed1/run_scores.csv)
+- `Random-500 seed 1` 日志：
+  - [gsm8k_random_500_seed1_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_random_500_seed1_eval.log)
+- `Random-500 seed 1` 预测：
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_random_500_seed1/gsm8k_predictions.json)
+- `CNN Top-500 seed 1` 分数表：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_cnn_top_500_seed1/run_scores.csv)
+- `CNN Top-500 seed 1` 日志：
+  - [gsm8k_cnn_top_500_seed1_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_cnn_top_500_seed1_eval.log)
+- `CNN Top-500 seed 1` 预测：
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_cnn_top_500_seed1/gsm8k_predictions.json)
+- `CNN Bottom-500 seed 1` 分数表：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_cnn_bottom_500_seed1/run_scores.csv)
+- `CNN Bottom-500 seed 1` 日志：
+  - [gsm8k_cnn_bottom_500_seed1_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_cnn_bottom_500_seed1_eval.log)
+- `CNN Bottom-500 seed 1` 预测：
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_cnn_bottom_500_seed1/gsm8k_predictions.json)

@@ -1,6 +1,6 @@
 # GSM8K 数学实验方案
 
-最后更新：2026-04-30 18:40 CST
+最后更新：2026-05-01 11:35 CST
 
 ## 目标
 
@@ -99,17 +99,37 @@
 
 当前待完成：
 
-- `CNN Top-500 seed 1` 训练 + 评测
-- `CNN Bottom-500 seed 1` 训练 + 评测
-- `Random-500 seed 1` 训练 + 评测
+- `GSM8K` 域内 selector 数据准备
+- `GSM8K` 域内 selector 训练
+- 域内 selector 重新打分与子集构造
 
-这三组结束后，结果表将统一比较：
+上一轮探索版三组已经完成，结果如下：
+
+- `Random-500 seed 1 = 0.8461`
+- `CNN Top-500 seed 1 = 0.8431`
+- `CNN Bottom-500 seed 1 = 0.8143`
+
+与基线对照：
+
+- `Base = 0.9310`
+- `Full seed 1 = 0.8271`
+
+这说明：
+
+- 当前迁移 selector 具备一定“识别坏数据”的能力
+- 但还没有体现出 `Top-500 > Random-500`
+
+因此下一轮结果表将重点比较：
 
 - `Base`
 - `Full`
 - `Random-500`
 - `CNN Top-500`
 - `CNN Bottom-500`
+
+但这里的 `CNN Top-500 / Bottom-500` 将改为：
+
+- 由 `GSM8K` 域内重新训练的 selector 产生
 
 ## 阶段 B：再补论文表 3 外部 baseline
 

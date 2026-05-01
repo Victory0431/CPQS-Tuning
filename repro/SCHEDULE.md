@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-04-30 17:00 CST
+最后更新：2026-05-01 11:35 CST
 
 ## 用途
 
@@ -222,17 +222,46 @@
     - [gsm8k_random_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_random_500_seed1_train.log)
     - [gsm8k_bottom500_queue.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_bottom500_queue.log)
 
+### 2026-05-01 GSM8K transfer-500 结果收尾
+
+- 三组探索实验已全部完成：
+  - `Random-500 seed 1 = 0.8461`
+  - `CNN Top-500 seed 1 = 0.8431`
+  - `CNN Bottom-500 seed 1 = 0.8143`
+- 结合已完成结果：
+  - `Base = 0.9310`
+  - `Full = 0.8271`
+- 当前可得结论：
+  - 迁移 selector 有一定“识别坏数据”的能力
+  - 但还没有表现出 `Top-500 > Random-500`
+- 因此主线决策调整为：
+  - 不继续在这版迁移 selector 上堆更多 seed
+  - 转向训练 `GSM8K` 域内 selector
+  - 用域内 selector 重新做 `Top-500 / Bottom-500 / Random-500`
+
+### 2026-05-01 下一步任务切换
+
+- 当前下一步正式切换为：
+  - 准备 `GSM8K` 域内 selector 训练数据
+  - 候选正样本：
+    - `GSM8K train` 原始高质量答案
+  - 候选负样本：
+    - `Qwen3-8B Base` 在 `GSM8K train` 上的生成结果
+    - `CNN Bottom-500 LoRA` 在 `GSM8K train` 上的生成结果
+- 这样做的原因：
+  - 当前只有 `bad data` 区分信号，没有 `top > random` 信号
+  - 需要让 selector 在数学域内学习“什么是更好/更差的解答”
+- 本轮新增脚本：
+  - [prepare_gsm8k_selector_data.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/prepare_gsm8k_selector_data.py)
+
 ## 当前排程
 
 - `GSM8K Base` 正式评测已经完成。
-- `GSM8K Full seed 1` 也已经完成。
-- `GSM8K Full < Base` 的首轮排查已经完成。
-- `GSM8K train` 的 selector 迁移打分已经完成。
-- `Top-500 / Bottom-500 / Random-500` 子集已经准备好。
+- `GSM8K Full seed 1` 已完成。
+- `GSM8K transfer-500` 三组探索实验也已完成。
 - 当前主任务已切换为：
-  - 启动三组 `LoRA + GSM8K eval`
-  - 汇总 `Base / Full / Random-500 / CNN Top-500 / CNN Bottom-500`
-  - 判断 selector 迁移到数学域后是否优于随机采样
+  - 训练 `GSM8K` 域内 selector
+  - 再做一轮更贴论文逻辑的 `Top-500 / Bottom-500 / Random-500`
 - 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
@@ -254,11 +283,8 @@
 ## 下一步
 
 - 当前最重要的下一步是：
-  - 跑完 `Random-500 / CNN Top-500 / CNN Bottom-500`
-  - 形成与 `Base / Full` 的同表对照
-  - 看是否出现：
-    - `CNN Top-500 > Random-500`
-    - `CNN Bottom-500 < Random-500`
-- 这轮结果应解释为：
-  - 现有 selector 迁移到 `GSM8K` 的探索实验
-  - 不是最严格的论文同构版 selector 训练实验
+  - 生成 `GSM8K` 域内 selector 训练所需的正负样本
+  - 启动域内 selector 训练
+  - 用新 selector 重新打分 `GSM8K train`
+  - 再比较 `Top-500 / Bottom-500 / Random-500`
+- 这会是比当前迁移实验更接近论文逻辑的一轮。
