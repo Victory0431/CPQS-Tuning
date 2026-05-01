@@ -117,6 +117,31 @@ def build_generation_kwargs(
     return generation_kwargs
 
 
+def apply_generation_config_overrides(
+    model,
+    tokenizer,
+    *,
+    max_new_tokens: int,
+    do_sample: bool,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+) -> None:
+    generation_config = model.generation_config
+    generation_config.pad_token_id = tokenizer.pad_token_id
+    generation_config.max_new_tokens = max_new_tokens
+    generation_config.do_sample = do_sample
+    if do_sample:
+        generation_config.temperature = temperature
+        generation_config.top_p = top_p
+        generation_config.top_k = top_k if top_k > 0 else 50
+    else:
+        # Force greedy decoding to avoid inheriting model default sampling params.
+        generation_config.temperature = 1.0
+        generation_config.top_p = 1.0
+        generation_config.top_k = 50
+
+
 def generate_batch(tokenizer, model, prompts: List[str], generation_kwargs: Dict[str, Any]) -> List[str]:
     encoded = tokenizer(prompts, return_tensors="pt", padding=True).to(model.device)
     prompt_length = encoded["input_ids"].shape[1]
@@ -622,6 +647,15 @@ def main() -> None:
     logger.info("Loading model and tokenizer")
     tokenizer, model = load_model_and_tokenizer(cfg.model_path, cfg.adapter_path)
     generation_kwargs = build_generation_kwargs(
+        tokenizer=tokenizer,
+        max_new_tokens=cfg.max_new_tokens,
+        do_sample=do_sample,
+        temperature=cfg.temperature,
+        top_p=cfg.top_p,
+        top_k=cfg.top_k,
+    )
+    apply_generation_config_overrides(
+        model=model,
         tokenizer=tokenizer,
         max_new_tokens=cfg.max_new_tokens,
         do_sample=do_sample,
