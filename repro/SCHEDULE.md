@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-05-01 11:30 CST
+最后更新：2026-05-01 12:10 CST
 
 ## 用途
 
@@ -270,14 +270,46 @@
   - 只有在有明确标签依据时，才能把样本放入 selector 的正负监督集
   - 否则最多只能把这类输出作为待比较候选，而不能直接当真负样本
 
+### 2026-05-01 Qwen2.5-1.5B-Instruct 复用子集实验启动
+
+- 用户决定切换到更弱、且更贴论文表 3 的基础模型：
+  - `Qwen2.5-1.5B-Instruct`
+- 模型已下载到：
+  - [Qwen2.5-1.5B-Instruct](/home/qjh/llm_learning/models/Qwen2.5-1.5B-Instruct)
+- 当前策略：
+  - 暂不重训 selector
+  - 直接复用现有 selector 打出来的 `Top/Bottom/Random-500` 子集
+  - 先看弱模型上差异是否会放大
+- 当前启动的 4 组任务：
+  - `Base`
+  - `Random-500 seed 1`
+  - `CNN Top-500 seed 1`
+  - `CNN Bottom-500 seed 1`
+- 双卡并发排程：
+  - `GPU0`
+    - `qwen25_15b_gsm8k_base`
+    - `qwen25_15b_gsm8k_random_500_seed1`
+  - `GPU1`
+    - `qwen25_15b_gsm8k_cnn_top_500_seed1`
+    - `qwen25_15b_gsm8k_cnn_bottom_500_seed1`
+- 当前已确认：
+  - `tmux` 会话已启动
+  - 四个日志文件已开始写入
+  - `nvidia-smi` 已看到每卡两个 Python 进程
+- 关键日志：
+  - [qwen25_15b_gsm8k_base_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_base_eval.log)
+  - [qwen25_15b_gsm8k_random_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_random_500_seed1_train.log)
+  - [qwen25_15b_gsm8k_cnn_top_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_cnn_top_500_seed1_train.log)
+  - [qwen25_15b_gsm8k_cnn_bottom_500_seed1_train.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_cnn_bottom_500_seed1_train.log)
+
 ## 当前排程
 
 - `GSM8K Base` 正式评测已经完成。
 - `GSM8K Full seed 1` 已完成。
 - `GSM8K transfer-500` 三组探索实验也已完成。
 - 当前主任务已切换为：
-  - 训练 `GSM8K` 域内 selector
-  - 再做一轮更贴论文逻辑的 `Top-500 / Bottom-500 / Random-500`
+  - 在 `Qwen2.5-1.5B-Instruct` 上复用现有 `Top/Bottom/Random-500`
+  - 先观察弱模型上 `Base / Random / Top / Bottom` 的差异
 - 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
@@ -299,8 +331,9 @@
 ## 下一步
 
 - 当前最重要的下一步是：
-  - 生成 `GSM8K` 域内 selector 训练所需的正负样本
-  - 启动域内 selector 训练
-  - 用新 selector 重新打分 `GSM8K train`
-  - 再比较 `Top-500 / Bottom-500 / Random-500`
-- 这会是比当前迁移实验更接近论文逻辑的一轮。
+  - 等 `Qwen2.5-1.5B-Instruct` 的 4 组任务跑完
+  - 汇总 `Base / Random-500 / Top-500 / Bottom-500`
+  - 看弱模型上是否出现更清晰的：
+    - `Top-500 > Random-500`
+    - `Bottom-500 < Random-500`
+- 如果这轮弱模型结果更清晰，再决定要不要继续补 `Full` 或更多 seed。
