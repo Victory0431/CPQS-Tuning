@@ -2,7 +2,10 @@ import argparse
 import csv
 import json
 import random
+import signal
+import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -143,15 +146,55 @@ def apply_generation_config_overrides(
 
 
 def generate_batch(tokenizer, model, prompts: List[str], generation_kwargs: Dict[str, Any]) -> List[str]:
+    logger = None
+    if hasattr(model, "_cpqs_eval_logger"):
+        logger = model._cpqs_eval_logger
+    if logger is not None:
+        logger.info(
+            "Generate batch start | batch_size=%s | prompt_tokens=%s | max_new_tokens=%s | do_sample=%s",
+            len(prompts),
+            max((prompt.count(" ") for prompt in prompts), default=0),
+            generation_kwargs.get("max_new_tokens"),
+            generation_kwargs.get("do_sample"),
+        )
     encoded = tokenizer(prompts, return_tensors="pt", padding=True).to(model.device)
     prompt_length = encoded["input_ids"].shape[1]
+    if logger is not None:
+        logger.info(
+            "Generate batch encoded | batch_size=%s | seq_len=%s | device=%s",
+            encoded["input_ids"].shape[0],
+            prompt_length,
+            model.device,
+        )
     with torch.no_grad():
         generated = model.generate(**encoded, **generation_kwargs)
     outputs: List[str] = []
     for index in range(generated.shape[0]):
         completion = generated[index, prompt_length:]
         outputs.append(tokenizer.decode(completion, skip_special_tokens=True).strip())
+    if logger is not None:
+        logger.info("Generate batch done | batch_size=%s", len(outputs))
     return outputs
+
+
+def register_failure_handlers(logger) -> None:
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            logger.warning("KeyboardInterrupt received")
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        logger.error(
+            "Unhandled exception\n%s",
+            "".join(traceback.format_exception(exc_type, exc_value, exc_traceback)).rstrip(),
+        )
+
+    def handle_signal(signum, _frame):
+        logger.error("Received fatal signal | signum=%s", signum)
+        raise SystemExit(128 + signum)
+
+    sys.excepthook = handle_exception
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(signum, handle_signal)
 
 
 def build_chat_prompt(tokenizer, user_content: str, enable_thinking: bool) -> str:
@@ -621,6 +664,7 @@ def main() -> None:
     ensure_dir(output_dir)
     log_file = Path(cfg.log_file) if cfg.log_file else output_dir / "evaluate_round1.log"
     logger = setup_logger("repro.evaluate_round1", log_file)
+    register_failure_handlers(logger)
     logger.info("Evaluation started")
     enable_thinking = parse_bool_flag(cfg.enable_thinking)
     do_sample = parse_bool_flag(cfg.do_sample)
@@ -646,6 +690,7 @@ def main() -> None:
 
     logger.info("Loading model and tokenizer")
     tokenizer, model = load_model_and_tokenizer(cfg.model_path, cfg.adapter_path)
+    model._cpqs_eval_logger = logger
     generation_kwargs = build_generation_kwargs(
         tokenizer=tokenizer,
         max_new_tokens=cfg.max_new_tokens,
@@ -750,4 +795,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        logger = setup_logger("repro.evaluate_round1.fallback", Path("evaluate_round1_crash.log"))
+        logger.error("Top-level crash\n%s", traceback.format_exc().rstrip())
+        raise

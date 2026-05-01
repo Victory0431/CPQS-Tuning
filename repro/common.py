@@ -508,11 +508,16 @@ def normalize_number(text: str) -> str:
     else:
         candidate = cleaned
     try:
+        if re.fullmatch(r"-?\d+", candidate):
+            return str(int(candidate))
+
         value = float(candidate)
+        if not math.isfinite(value):
+            return normalize_whitespace(candidate)
         if math.isclose(value, round(value)):
             return str(int(round(value)))
         return f"{value:.10f}".rstrip("0").rstrip(".")
-    except ValueError:
+    except (OverflowError, ValueError):
         return normalize_whitespace(candidate)
 
 

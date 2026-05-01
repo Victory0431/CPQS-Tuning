@@ -1,6 +1,6 @@
 # CPQS 正式结果
 
-最后更新：2026-05-01 11:35 CST
+最后更新：2026-05-01 20:20 CST
 
 ## 正式评测口径
 
@@ -246,3 +246,60 @@
   - [gsm8k_cnn_bottom_500_seed1_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/gsm8k_cnn_bottom_500_seed1_eval.log)
 - `CNN Bottom-500 seed 1` 预测：
   - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/gsm8k_cnn_bottom_500_seed1/gsm8k_predictions.json)
+
+## Qwen2.5-1.5B-Instruct 复用子集正式结果
+
+### 当前正式口径
+
+- 基础模型：`Qwen2.5-1.5B-Instruct`
+- 训练子集：
+  - 复用现有 selector 产出的 `Random-500 / CNN Top-500 / CNN Bottom-500`
+- 评测集：`GSM8K test`
+- 推理协议：
+  - `non-thinking`
+  - `temperature=0`
+  - `do_sample=false`
+  - `max_new_tokens=512`
+  - `batch_size_gsm8k=32`
+- 当前可信结果以 `fixed2` 这轮重跑为准：
+  - 已修复 `normalize_number()` 在极大数值输出下触发 `OverflowError` 的问题
+  - 已补充 batch 级进度日志和 `EXIT code` 留痕
+
+### 正式结果表
+
+| Method | GSM8K |
+| --- | ---: |
+| Base | 0.6406 |
+| Random-500 seed 1 | 0.5019 |
+| CNN Top-500 seed 1 | 0.5064 |
+| CNN Bottom-500 seed 1 | 0.4738 |
+
+### 当前结论
+
+- 4 组 `Qwen2.5-1.5B-Instruct` 评测均已完成，且 `launch.log` 退出码均为 `0`。
+- 当前排序为：
+  - `Base > CNN Top-500 > Random-500 > CNN Bottom-500`
+- `CNN Bottom-500` 明显低于 `Random-500`，说明当前 selector 至少保留了“识别更差数据”的信号。
+- `CNN Top-500` 仅略高于 `Random-500`，但仍显著低于 `Base`，因此这轮结果还不能支持“Top-500 能稳定优于随机采样”。
+- 结合 `Qwen3-8B` 与 `Qwen2.5-1.5B-Instruct` 两轮结果，目前更稳定的信号是：
+  - `Bottom < Random`
+  - `Top` 尚未稳定超过 `Random`
+
+### 结果文件
+
+- `Base`：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_base_fixed2/run_scores.csv)
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_base_fixed2/gsm8k_predictions.json)
+  - [qwen25_15b_gsm8k_base_fixed2_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_base_fixed2_eval.log)
+- `Random-500 seed 1`：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_random_500_seed1_fixed2/run_scores.csv)
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_random_500_seed1_fixed2/gsm8k_predictions.json)
+  - [qwen25_15b_gsm8k_random_500_seed1_fixed2_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_random_500_seed1_fixed2_eval.log)
+- `CNN Top-500 seed 1`：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_cnn_top_500_seed1_fixed2/run_scores.csv)
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_cnn_top_500_seed1_fixed2/gsm8k_predictions.json)
+  - [qwen25_15b_gsm8k_cnn_top_500_seed1_fixed2_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_cnn_top_500_seed1_fixed2_eval.log)
+- `CNN Bottom-500 seed 1`：
+  - [run_scores.csv](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_cnn_bottom_500_seed1_fixed2/run_scores.csv)
+  - [gsm8k_predictions.json](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/eval/qwen25_15b_gsm8k_cnn_bottom_500_seed1_fixed2/gsm8k_predictions.json)
+  - [qwen25_15b_gsm8k_cnn_bottom_500_seed1_fixed2_eval.log](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro_outputs/logs/qwen25_15b_gsm8k_cnn_bottom_500_seed1_fixed2_eval.log)

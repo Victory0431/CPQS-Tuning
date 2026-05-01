@@ -1,6 +1,6 @@
 # CPQS 项目历程与排程
 
-最后更新：2026-05-01 12:10 CST
+最后更新：2026-05-01 20:20 CST
 
 ## 用途
 
@@ -307,9 +307,8 @@
 - `GSM8K Base` 正式评测已经完成。
 - `GSM8K Full seed 1` 已完成。
 - `GSM8K transfer-500` 三组探索实验也已完成。
-- 当前主任务已切换为：
-  - 在 `Qwen2.5-1.5B-Instruct` 上复用现有 `Top/Bottom/Random-500`
-  - 先观察弱模型上 `Base / Random / Top / Bottom` 的差异
+- `Qwen2.5-1.5B-Instruct` 的 4 组 `fixed2` 正式评测也已全部完成。
+- 当前没有正在运行的 GPU 任务。
 - 当前不再建议回去补旧 `Alpaca` 主线多 seed。
 
 ## 当前统一协议
@@ -331,9 +330,30 @@
 ## 下一步
 
 - 当前最重要的下一步是：
-  - 等 `Qwen2.5-1.5B-Instruct` 的 4 组任务跑完
-  - 汇总 `Base / Random-500 / Top-500 / Bottom-500`
-  - 看弱模型上是否出现更清晰的：
-    - `Top-500 > Random-500`
-    - `Bottom-500 < Random-500`
-- 如果这轮弱模型结果更清晰，再决定要不要继续补 `Full` 或更多 seed。
+  - 基于现有 `Qwen2.5-1.5B-Instruct` 结果判断是否继续补 `Full` 或更多 seed
+  - 如果继续开新实验，直接复用当前这版带详细时间戳日志的评测脚本
+  - 后续所有正式结果继续统一写入 [RESULTS.md](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/RESULTS.md)
+
+### 2026-05-01 Qwen2.5-1.5B 评测异常定位与 fixed2 收尾
+
+- `Qwen2.5-1.5B-Instruct` 第一轮 `Base / Random / Top / Bottom` 评测曾多次出现“进入 `gsm8k` 后无声退出”。
+- 已定位到一个真实评测 bug：
+  - [common.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/common.py) 中 `normalize_number()` 在处理极大数值输出时，可能把候选答案转成 `inf`
+  - 后续 `round(inf)` 触发 `OverflowError`
+  - 直接导致整轮评测退出
+- 已完成修复与增强：
+  - 对超大数值、非有限浮点做稳健回退，不再让答案抽取打崩整轮评测
+  - 在 [evaluate_round1.py](/home/qjh/llm_learning/CPQS_lab/CPQS-Tuning/repro/evaluate_round1.py) 中补充：
+    - batch 级时间戳日志
+    - `Generate batch start / encoded / done`
+    - 顶层异常日志
+    - `EXIT code` 落盘
+- 修复后重新执行 `fixed2` 正式评测，4 组任务均成功完成，退出码均为 `0`。
+- 当前可信正式结果：
+  - `Base = 0.6406`
+  - `Random-500 seed 1 = 0.5019`
+  - `CNN Top-500 seed 1 = 0.5064`
+  - `CNN Bottom-500 seed 1 = 0.4738`
+- 当前可重复观察到的信号仍然是：
+  - `Bottom < Random`
+  - `Top` 仅略高于 `Random`，还不足以支撑强结论
